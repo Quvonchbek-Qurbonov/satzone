@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 
 import pytest
+from sqlalchemy import select
 
 
 @pytest.mark.asyncio
@@ -15,9 +16,35 @@ async def test_register_login_flow(client):
     )
     if register.status_code == 500:
         pytest.skip("Smoke flow needs DB — skipping")
-    assert register.status_code == 201
-    body = register.json()
-    assert body["email"] == email
+    assert register.status_code == 202
+
+    # Login must fail until the email is verified.
+    pre_verify_login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": email, "password": "Sup3rSecret!"},
+    )
+    assert pre_verify_login.status_code == 401
+    assert pre_verify_login.json()["error"]["code"] in {"invalid_credentials", "email_not_verified"}
+
+    # Pull the verification token straight from the DB (we can't read the email here).
+    from app.db.session import SessionLocal
+    from app.models.auth import PendingRegistration
+
+    async with SessionLocal() as session:
+        pending = (
+            await session.execute(
+                select(PendingRegistration).where(PendingRegistration.email == email)
+            )
+        ).scalar_one()
+        # Use a deterministic token rotation so we can read it back in plaintext.
+        from app.core.security import generate_opaque_token, hash_opaque_token
+
+        raw_token = generate_opaque_token()
+        pending.token_hash = hash_opaque_token(raw_token)
+        await session.commit()
+
+    verify = await client.post("/api/v1/auth/verify-email", json={"token": raw_token})
+    assert verify.status_code == 200
 
     login = await client.post(
         "/api/v1/auth/login",

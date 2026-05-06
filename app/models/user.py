@@ -26,10 +26,11 @@ class User(UUIDPKMixin, TimestampMixin, Base):
     __tablename__ = "users"
 
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     full_name: Mapped[str] = mapped_column(String(150), nullable=False)
     avatar_url: Mapped[str | None] = mapped_column(String(500))
     role: Mapped[UserRole] = mapped_column(user_role_enum, nullable=False, default=UserRole.USER)
+    google_sub: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)
 
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

@@ -18,7 +18,7 @@ from app.core.security import (
     needs_rehash,
     verify_password,
 )
-from app.models.auth import EmailVerificationToken, PasswordResetToken, RefreshToken
+from app.models.auth import PasswordResetToken, PendingRegistration, RefreshToken
 from app.models.user import NotificationPreference, User
 from app.utils.email import send_email
 
@@ -73,51 +73,79 @@ async def register(
     email: str,
     full_name: str,
     password: str,
-) -> User:
+) -> None:
+    """Create a pending registration and email a verification token.
+
+    No row is written to ``users`` until the token is redeemed via
+    :func:`verify_email`. If a pending row already exists for this email,
+    it is overwritten — letting the real owner reclaim a squatted email by
+    simply re-registering.
+    """
     email_norm = email.strip().lower()
-    existing = await session.execute(select(User).where(User.email == email_norm))
-    if existing.scalar_one_or_none() is not None:
-        # Don't leak existence — but for register endpoint a 409 is normal/UX-friendly.
+    full_name_clean = full_name.strip()
+
+    if (
+        await session.execute(select(User.id).where(User.email == email_norm))
+    ).scalar_one_or_none() is not None:
         raise ConflictError("An account with this email already exists", code="email_taken")
 
-    user = User(
-        email=email_norm,
-        password_hash=hash_password(password),
-        full_name=full_name.strip(),
-    )
-    session.add(user)
-    await session.flush()
-
-    # Default notification preferences
-    session.add(NotificationPreference(user_id=user.id))
-
-    # Email verification token
     raw_verify = generate_opaque_token()
-    session.add(
-        EmailVerificationToken(
-            user_id=user.id,
-            token_hash=hash_opaque_token(raw_verify),
-            expires_at=_now() + timedelta(hours=settings.EMAIL_VERIFY_EXPIRE_HOURS),
+    expires_at = _now() + timedelta(hours=settings.EMAIL_VERIFY_EXPIRE_HOURS)
+
+    pending = (
+        await session.execute(
+            select(PendingRegistration).where(PendingRegistration.email == email_norm)
         )
-    )
+    ).scalar_one_or_none()
+    if pending is None:
+        pending = PendingRegistration(
+            email=email_norm,
+            password_hash=hash_password(password),
+            full_name=full_name_clean,
+            token_hash=hash_opaque_token(raw_verify),
+            expires_at=expires_at,
+        )
+        session.add(pending)
+    else:
+        pending.password_hash = hash_password(password)
+        pending.full_name = full_name_clean
+        pending.token_hash = hash_opaque_token(raw_verify)
+        pending.expires_at = expires_at
     await session.commit()
 
-    # Fire-and-forget email (best-effort; background scheduler can pick up failures)
-    verify_url = f"{settings.FRONTEND_URL}/verify-email?token={raw_verify}"
+    verify_url = (
+        f"{settings.API_BASE_URL.rstrip('/')}{settings.API_V1_PREFIX}"
+        f"/auth/verify-email?token={raw_verify}"
+    )
     try:
         await send_email(
-            to=user.email,
+            to=email_norm,
             subject=f"Verify your {settings.PROJECT_NAME} account",
             body_text=(
-                f"Hi {user.full_name},\n\n"
+                f"Hi {full_name_clean},\n\n"
                 f"Please verify your email by visiting:\n{verify_url}\n\n"
                 f"This link expires in {settings.EMAIL_VERIFY_EXPIRE_HOURS} hours."
             ),
         )
     except Exception:  # noqa: BLE001
-        logger.exception("verification_email_send_failed", user_id=str(user.id))
+        logger.exception("verification_email_send_failed", email=email_norm)
 
-    return user
+
+async def issue_tokens(
+    session: AsyncSession,
+    user: User,
+    request: Request | None = None,
+) -> dict:
+    """Mint an access + refresh pair for an already-authenticated user.
+
+    Used by the email/password ``login`` path and by OAuth callbacks. The
+    caller is responsible for any prior identity checks (password match,
+    OAuth code exchange, etc.) and for ``user.is_active``.
+    """
+    user.last_login_at = _now()
+    _, raw_refresh = await _create_refresh_token(session, user.id, request)
+    await session.commit()
+    return _build_token_response(user.id, raw_refresh)
 
 
 async def login(
@@ -130,12 +158,27 @@ async def login(
     stmt = select(User).where(User.email == email_norm)
     user = (await session.execute(stmt)).scalar_one_or_none()
     # Constant-time-ish: always run verify_password against either real hash or a dummy.
-    candidate_hash = user.password_hash if user else hash_password("dummy-disposable-string")
+    # OAuth-only users have no password_hash — use a dummy so timing reveals nothing,
+    # then surface a distinct error so the frontend can route to the Google button.
+    candidate_hash = (
+        user.password_hash
+        if user and user.password_hash
+        else hash_password("dummy-disposable-string")
+    )
     valid = verify_password(password, candidate_hash)
+    if user and user.password_hash is None:
+        raise UnauthorizedError(
+            "This account uses Google sign-in", code="oauth_only"
+        )
     if not user or not valid:
         raise UnauthorizedError("Invalid email or password", code="invalid_credentials")
     if not user.is_active:
         raise UnauthorizedError("Account is disabled", code="account_disabled")
+    if not user.is_verified:
+        raise UnauthorizedError(
+            "Please verify your email before logging in",
+            code="email_not_verified",
+        )
 
     if needs_rehash(user.password_hash):
         user.password_hash = hash_password(password)
@@ -186,17 +229,39 @@ async def logout(session: AsyncSession, raw_token: str) -> None:
 
 
 async def verify_email(session: AsyncSession, raw_token: str) -> User:
+    """Redeem a verification token: promote a pending registration into a real user."""
     th = hash_opaque_token(raw_token)
-    stmt = select(EmailVerificationToken).where(EmailVerificationToken.token_hash == th)
-    tok = (await session.execute(stmt)).scalar_one_or_none()
-    if tok is None or tok.consumed_at is not None or tok.expires_at <= _now():
-        raise ValidationAppError("Invalid or expired verification token", code="invalid_verify_token")
-    user = await session.get(User, tok.user_id)
-    if user is None:
-        raise NotFoundError("User not found")
-    user.is_verified = True
-    user.email_verified_at = _now()
-    tok.consumed_at = _now()
+    pending = (
+        await session.execute(
+            select(PendingRegistration).where(PendingRegistration.token_hash == th)
+        )
+    ).scalar_one_or_none()
+    if pending is None or pending.expires_at <= _now():
+        raise ValidationAppError(
+            "Invalid or expired verification token", code="invalid_verify_token"
+        )
+
+    # Defensive: another flow may have created a real user with this email between
+    # registration and verification. Surface that as a clean conflict.
+    if (
+        await session.execute(select(User.id).where(User.email == pending.email))
+    ).scalar_one_or_none() is not None:
+        raise ConflictError(
+            "An account with this email already exists", code="email_taken"
+        )
+
+    now = _now()
+    user = User(
+        email=pending.email,
+        password_hash=pending.password_hash,
+        full_name=pending.full_name,
+        is_verified=True,
+        email_verified_at=now,
+    )
+    session.add(user)
+    await session.flush()
+    session.add(NotificationPreference(user_id=user.id))
+    await session.delete(pending)
     await session.commit()
     return user
 
@@ -270,27 +335,30 @@ async def change_password(
 
 
 async def resend_verification(session: AsyncSession, email: str) -> None:
+    """Re-issue a verification token for a pending registration. Silent on miss."""
     email_norm = email.strip().lower()
-    stmt = select(User).where(User.email == email_norm)
-    user = (await session.execute(stmt)).scalar_one_or_none()
-    if user is None or user.is_verified:
-        return  # silent
+    pending = (
+        await session.execute(
+            select(PendingRegistration).where(PendingRegistration.email == email_norm)
+        )
+    ).scalar_one_or_none()
+    if pending is None:
+        return  # silent — no enumeration
 
     raw = generate_opaque_token()
-    session.add(
-        EmailVerificationToken(
-            user_id=user.id,
-            token_hash=hash_opaque_token(raw),
-            expires_at=_now() + timedelta(hours=settings.EMAIL_VERIFY_EXPIRE_HOURS),
-        )
-    )
+    pending.token_hash = hash_opaque_token(raw)
+    pending.expires_at = _now() + timedelta(hours=settings.EMAIL_VERIFY_EXPIRE_HOURS)
     await session.commit()
-    verify_url = f"{settings.FRONTEND_URL}/verify-email?token={raw}"
+
+    verify_url = (
+        f"{settings.API_BASE_URL.rstrip('/')}{settings.API_V1_PREFIX}"
+        f"/auth/verify-email?token={raw}"
+    )
     try:
         await send_email(
-            to=user.email,
+            to=pending.email,
             subject=f"Verify your {settings.PROJECT_NAME} account",
-            body_text=f"Hi {user.full_name},\n\nVerify your email: {verify_url}",
+            body_text=f"Hi {pending.full_name},\n\nVerify your email: {verify_url}",
         )
     except Exception:  # noqa: BLE001
-        logger.exception("resend_verify_failed", user_id=str(user.id))
+        logger.exception("resend_verify_failed", email=email_norm)

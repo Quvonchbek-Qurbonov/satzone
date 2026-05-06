@@ -31,15 +31,23 @@ class RefreshToken(UUIDPKMixin, Base):
     user: Mapped[User] = relationship()
 
 
-class EmailVerificationToken(UUIDPKMixin, Base):
-    __tablename__ = "email_verification_tokens"
+class PendingRegistration(UUIDPKMixin, Base):
+    """A registration awaiting email verification.
 
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
-    )
+    The real ``users`` row is created only when the verification token is
+    redeemed — so unverified attempts never pollute the auth surface and an
+    email squatter cannot block the real owner from signing up. The owner's
+    re-registration overwrites this row (token reset) and invalidates the
+    squatter's token.
+    """
+
+    __tablename__ = "pending_registrations"
+
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    full_name: Mapped[str] = mapped_column(String(150), nullable=False)
     token_hash: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

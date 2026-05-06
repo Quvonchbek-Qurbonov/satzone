@@ -83,3 +83,26 @@ def hash_opaque_token(token: str) -> str:
 
 def consteq(a: str, b: str) -> bool:
     return secrets.compare_digest(a, b)
+
+
+def create_oauth_state(*, expires_in: timedelta = timedelta(minutes=10)) -> str:
+    """Short-lived signed state token for OAuth CSRF protection."""
+    expire = _now() + expires_in
+    payload = {
+        "type": "oauth_state",
+        "nonce": secrets.token_urlsafe(16),
+        "iat": int(_now().timestamp()),
+        "exp": int(expire.timestamp()),
+    }
+    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
+def verify_oauth_state(token: str) -> None:
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+    except jwt.ExpiredSignatureError as exc:
+        raise UnauthorizedError("OAuth state expired", code="oauth_state_expired") from exc
+    except jwt.InvalidTokenError as exc:
+        raise UnauthorizedError("Invalid OAuth state", code="invalid_oauth_state") from exc
+    if payload.get("type") != "oauth_state":
+        raise UnauthorizedError("Invalid OAuth state", code="invalid_oauth_state")

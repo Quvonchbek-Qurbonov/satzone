@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 
 from app.api.v1 import (
     account,
+    admin,
     assessments,
     auth,
     categories,
@@ -36,3 +37,4 @@ api_router.include_router(programs.router)
 api_router.include_router(programs.me_router)
 api_router.include_router(instructor.router)
 api_router.include_router(assessments.router)
+api_router.include_router(admin.router)

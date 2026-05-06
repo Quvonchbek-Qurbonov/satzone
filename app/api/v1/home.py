@@ -38,6 +38,7 @@ async def home_feed(
     continue_learning = (
         await home_service.fetch_continue_learning(session, user) if user else []
     )
+
     recommended = await home_service.fetch_recommended(session, user)
     featured = await home_service.fetch_featured(session)
     popular = await home_service.fetch_popular(session)

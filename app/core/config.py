@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_AUTH_PER_MINUTE: int = 10
     RATE_LIMIT_DEFAULT_PER_MINUTE: int = 120
 
-    MAIL_BACKEND: Literal["console", "smtp"] = "console"
+    MAIL_BACKEND: Literal["console", "smtp", "brevo"] = "console"
     MAIL_FROM: str = "no-reply@edure.local"
     MAIL_FROM_NAME: str = "Edure"
     SMTP_HOST: str | None = None
@@ -54,8 +54,15 @@ class Settings(BaseSettings):
     SMTP_USER: str | None = None
     SMTP_PASSWORD: str | None = None
     SMTP_TLS: bool = True
+    BREVO_API_KEY: str | None = None
 
     FRONTEND_URL: str = "http://localhost:3000"
+    API_BASE_URL: str = "http://localhost:8000"
+
+    GOOGLE_CLIENT_ID: str | None = None
+    GOOGLE_CLIENT_SECRET: str | None = None
+    # If unset we derive {API_BASE_URL}{API_V1_PREFIX}/auth/google/callback at runtime.
+    GOOGLE_REDIRECT_URI: str | None = None
 
     # Media uploads (videos, images, resources)
     MEDIA_ROOT: str = "media"

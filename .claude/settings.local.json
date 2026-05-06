@@ -21,7 +21,12 @@
       "PowerShell(D:\\\\Project\\\\satzone\\\\.venv\\\\Scripts\\\\python.exe D:\\\\Project\\\\satzone\\\\scripts\\\\test_instructor_endpoints.py 2>&1)",
       "PowerShell(Invoke-WebRequest -Uri http://localhost:8000/api/v1/openapi.json -OutFile D:\\\\Project\\\\satzone\\\\postman\\\\openapi.json -UseBasicParsing; \\(Get-Item D:\\\\Project\\\\satzone\\\\postman\\\\openapi.json\\).Length)",
       "PowerShell($c = Get-Content D:\\\\Project\\\\satzone\\\\postman\\\\edure.postman_collection.json -Raw | ConvertFrom-Json; $folders = $c.item | ForEach-Object { \"$\\($_.name\\) \\($\\($_.item.Count\\)\\)\" }; $folders -join \"`n\"; $total = \\($c.item | ForEach-Object { $_.item.Count } | Measure-Object -Sum\\).Sum; \"TOTAL REQUESTS: $total\")",
-      "PowerShell($c = Get-Content D:\\\\Project\\\\satzone\\\\postman\\\\edure.postman_collection.json -Raw | ConvertFrom-Json; $e = Get-Content D:\\\\Project\\\\satzone\\\\postman\\\\edure.postman_environment.json -Raw | ConvertFrom-Json; \"collection OK: $\\($c.info.name\\) [$\\($c.item.Count\\) folders]\"; \"env OK: $\\($e.name\\) [$\\($e.values.Count\\) vars]\"; \"openapi paths: $\\(\\(Get-Content D:\\\\Project\\\\satzone\\\\postman\\\\openapi.json -Raw | ConvertFrom-Json\\).paths.PSObject.Properties.Count\\)\")"
+      "PowerShell($c = Get-Content D:\\\\Project\\\\satzone\\\\postman\\\\edure.postman_collection.json -Raw | ConvertFrom-Json; $e = Get-Content D:\\\\Project\\\\satzone\\\\postman\\\\edure.postman_environment.json -Raw | ConvertFrom-Json; \"collection OK: $\\($c.info.name\\) [$\\($c.item.Count\\) folders]\"; \"env OK: $\\($e.name\\) [$\\($e.values.Count\\) vars]\"; \"openapi paths: $\\(\\(Get-Content D:\\\\Project\\\\satzone\\\\postman\\\\openapi.json -Raw | ConvertFrom-Json\\).paths.PSObject.Properties.Count\\)\")",
+      "Bash(curl -sf http://localhost:8000/api/v1/openapi.json -o \"D:/Project/satzone/postman/openapi.json\")",
+      "Bash(curl -sf http://localhost:8000/api/v1/openapi.json)",
+      "Bash(python -c \"import sys, json; d=json.load\\(sys.stdin\\); print\\([p for p in d['paths'] if 'admin' in p]\\)\")",
+      "Bash(curl *)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\([p for p in d['paths'] if 'google' in p]\\)\")"
     ]
   }
 }

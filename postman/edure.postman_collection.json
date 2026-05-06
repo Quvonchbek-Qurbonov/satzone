@@ -45,9 +45,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
-                  "const j = pm.response.json();",
-                  "if (j && j.email) pm.environment.set('user_email', j.email);"
+                  "pm.test('202 Accepted', () => pm.response.to.have.status(202));",
+                  "// Register no longer creates a user — verification email must be redeemed via POST /auth/verify-email."
                 ]
               }
             }
@@ -1175,6 +1174,40 @@
           "request": {
             "method": "DELETE",
             "url": "{{base_url}}/me/sessions"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Google OAuth",
+      "description": "Backend-led Google sign-in. Open the login URL in a browser — the callback is rendered as HTML and reveals the access/refresh tokens for testing.",
+      "item": [
+        {
+          "name": "Start Google sign-in (open in browser)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "{{base_url}}/auth/google/login",
+            "description": "Returns 307 → https://accounts.google.com/... Postman won't render Google's UI; right-click the request and 'Open in Browser' to actually consent."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "description": "Admin-only endpoints. Caller must have role=admin.",
+      "item": [
+        {
+          "name": "Promote user to instructor",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{user_email}}\"\n}"
+            },
+            "url": "{{base_url}}/admin/users/promote-instructor",
+            "description": "Set the target user's role to `instructor` (idempotent; admins are left alone). Provide exactly one of `email` or `user_id`."
           }
         }
       ]

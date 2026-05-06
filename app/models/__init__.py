@@ -12,7 +12,7 @@ from app.models.assessment import (
     QuestionOption,
     SubmissionAnswer,
 )
-from app.models.auth import EmailVerificationToken, PasswordResetToken, RefreshToken
+from app.models.auth import PasswordResetToken, PendingRegistration, RefreshToken
 from app.models.catalog import Category, Instructor
 from app.models.certificate import Certificate
 from app.models.course import Course, CourseSection, Lesson
@@ -42,7 +42,6 @@ __all__ = [
     "Course",
     "CourseLevel",
     "CourseSection",
-    "EmailVerificationToken",
     "Enrollment",
     "Instructor",
     "Lesson",
@@ -52,6 +51,7 @@ __all__ = [
     "NotificationPreference",
     "NotificationType",
     "PasswordResetToken",
+    "PendingRegistration",
     "Program",
     "ProgramCourse",
     "ProgramEnrollment",

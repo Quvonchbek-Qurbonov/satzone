@@ -54,7 +54,7 @@ A clean run order to exercise everything end-to-end:
 
 ### Instructor / Assessments flow
 
-These endpoints require a user with `role=instructor` (or `admin`) — `auth/register` only mints `user`-role accounts, so promote one out of band (e.g. `UPDATE users SET role='instructor', is_verified=true WHERE email='…';`).
+These endpoints require a user with `role=instructor` (or `admin`) — `auth/register` only mints `user`-role accounts. Promote one with **Admin → Promote user to instructor** (caller must already be an admin) or, for the very first admin, directly in the DB: `UPDATE users SET role='admin', is_verified=true WHERE email='…';`.
 
 1. **Auth → Login** as the instructor.
 2. **Instructor → Upsert my profile** (creates the `instructors` row tied to your user).

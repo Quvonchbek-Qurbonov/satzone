@@ -110,7 +110,7 @@ The auth smoke test self-skips if the DB isn't migrated.
 
 - [ ] Set a strong `JWT_SECRET_KEY` (`python -c "import secrets; print(secrets.token_hex(32))"`)
 - [ ] Set `ENV=production`, `DEBUG=false`, `LOG_JSON=true`
-- [ ] Set `MAIL_BACKEND=smtp` and configure SMTP_*
+- [ ] Set `MAIL_BACKEND=brevo` (+ `BREVO_API_KEY`, `MAIL_FROM`, `MAIL_FROM_NAME`) or `MAIL_BACKEND=smtp` and configure SMTP_*
 - [ ] Restrict `BACKEND_CORS_ORIGINS` to known frontend hosts
 - [ ] Run behind a reverse proxy that sets `X-Forwarded-For` (rate limiter relies on it)
 - [ ] Use a managed Postgres + Redis with backups
