@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(\"D:\\\\Project\\\\satzone\\\\.venv\\\\Scripts\\\\python.exe\" --version)",
+      "Bash(xargs python -m py_compile)",
+      "Bash(xargs -0 ./.venv/Scripts/python.exe -m py_compile)",
+      "Bash(D:/Project/satzone/.venv/Scripts/python.exe -c \"import sys; print\\(sys.version\\)\")",
+      "Bash(D:/Project/satzone/.venv/Scripts/pip.exe list *)",
+      "Bash(curl -s http://localhost:8000/api/v1/health)",
+      "Bash(curl -s http://localhost:8000/api/v1/categories)",
+      "Bash(curl -s \"http://localhost:8000/api/v1/courses?size=3\")",
+      "Bash(docker compose *)",
+      "PowerShell($feed = Invoke-RestMethod -Uri http://localhost:8000/api/v1/home; \"home feed: featured={0} popular={1} new={2} categories={3} programs={4} recommended={5}\" -f $feed.featured.Count, $feed.popular.Count, $feed.new_courses.Count, $feed.categories.Count, $feed.programs.Count, $feed.recommended.Count)",
+      "PowerShell(D:\\\\Project\\\\satzone\\\\.venv\\\\Scripts\\\\python.exe -m pip install email-validator -q)",
+      "PowerShell(D:\\\\Project\\\\satzone\\\\.venv\\\\Scripts\\\\python.exe -c \"from app.main import app; print\\('routes:', len\\(app.routes\\)\\); [print\\(r.path, getattr\\(r, 'methods', ''\\)\\) for r in app.routes if 'instructor' in getattr\\(r, 'path', ''\\) or 'assessment' in getattr\\(r, 'path', ''\\)]\")",
+      "PowerShell(D:\\\\Project\\\\satzone\\\\.venv\\\\Scripts\\\\python.exe -c \"import py_compile; py_compile.compile\\(r'D:\\\\Project\\\\satzone\\\\alembic\\\\versions\\\\20260506_0002_instructor_assessments.py', doraise=True\\); print\\('OK'\\)\")",
+      "PowerShell(D:\\\\Project\\\\satzone\\\\.venv\\\\Scripts\\\\python.exe -c \"from app.services import assessment_service; print\\(hasattr\\(assessment_service, 'get_owned_assessment'\\)\\)\")",
+      "PowerShell(D:\\\\Project\\\\satzone\\\\.venv\\\\Scripts\\\\python.exe -c \"from app.main import app; print\\('routes:', len\\(app.routes\\)\\)\")",
+      "PowerShell(docker exec satzone-api-1 *)",
+      "PowerShell(docker exec satzone-db-1 *)",
+      "PowerShell(D:\\\\Project\\\\satzone\\\\.venv\\\\Scripts\\\\python.exe D:\\\\Project\\\\satzone\\\\scripts\\\\test_instructor_endpoints.py 2>&1)",
+      "PowerShell(Invoke-WebRequest -Uri http://localhost:8000/api/v1/openapi.json -OutFile D:\\\\Project\\\\satzone\\\\postman\\\\openapi.json -UseBasicParsing; \\(Get-Item D:\\\\Project\\\\satzone\\\\postman\\\\openapi.json\\).Length)",
+      "PowerShell($c = Get-Content D:\\\\Project\\\\satzone\\\\postman\\\\edure.postman_collection.json -Raw | ConvertFrom-Json; $folders = $c.item | ForEach-Object { \"$\\($_.name\\) \\($\\($_.item.Count\\)\\)\" }; $folders -join \"`n\"; $total = \\($c.item | ForEach-Object { $_.item.Count } | Measure-Object -Sum\\).Sum; \"TOTAL REQUESTS: $total\")",
+      "PowerShell($c = Get-Content D:\\\\Project\\\\satzone\\\\postman\\\\edure.postman_collection.json -Raw | ConvertFrom-Json; $e = Get-Content D:\\\\Project\\\\satzone\\\\postman\\\\edure.postman_environment.json -Raw | ConvertFrom-Json; \"collection OK: $\\($c.info.name\\) [$\\($c.item.Count\\) folders]\"; \"env OK: $\\($e.name\\) [$\\($e.values.Count\\) vars]\"; \"openapi paths: $\\(\\(Get-Content D:\\\\Project\\\\satzone\\\\postman\\\\openapi.json -Raw | ConvertFrom-Json\\).paths.PSObject.Properties.Count\\)\")"
+    ]
+  }
+}
