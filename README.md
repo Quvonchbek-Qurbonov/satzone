@@ -9,7 +9,8 @@ Homepage, Explore, Detail Course, My Learnings, Degree, Account & Settings).
 - **PostgreSQL 16**, **Redis 7**
 - Argon2 password hashing, JWT access + opaque rotating refresh tokens
 - Structured logging (structlog), per-request IDs, sliding-window rate limit
-- Pluggable email backend (console for dev, SMTP for prod)
+- Pluggable email backend (console for dev, SMTP/Brevo for prod)
+- Pluggable media storage (local disk for dev, AWS S3 with presigned URLs for prod)
 
 ## Layout
 
@@ -75,6 +76,7 @@ uvicorn app.main:app --reload
 | My Learnings       | `POST /me/enrollments`, `GET /me/enrollments`, `PUT .../lessons/{lesson_id}/progress`, `GET /me/certificates`, `/me/wishlist` |
 | Degree (Programs)  | `GET /programs`, `GET /programs/{slug}`, `POST /programs/{id}/enroll`, `GET /me/programs`       |
 | Account & Settings | `GET/PATCH/DELETE /me`, `PUT /me/password`, `GET/PATCH /me/preferences/notifications`, `GET/DELETE /me/sessions` |
+| Admin              | `/admin/users`, `/admin/categories`, `/admin/instructors`, `/admin/courses`, `/admin/programs` (+ `/programs/{id}/courses` linking), `/admin/reviews`, `/admin/enrollments`, `/admin/certificates` — full CRUD + lifecycle (`publish`/`unpublish`/`archive`) + media uploads. All routes gated by `role=admin`. |
 
 ## Auth model
 
@@ -111,6 +113,7 @@ The auth smoke test self-skips if the DB isn't migrated.
 - [ ] Set a strong `JWT_SECRET_KEY` (`python -c "import secrets; print(secrets.token_hex(32))"`)
 - [ ] Set `ENV=production`, `DEBUG=false`, `LOG_JSON=true`
 - [ ] Set `MAIL_BACKEND=brevo` (+ `BREVO_API_KEY`, `MAIL_FROM`, `MAIL_FROM_NAME`) or `MAIL_BACKEND=smtp` and configure SMTP_*
+- [ ] Set `STORAGE_BACKEND=s3` and configure `AWS_*` (bucket should keep "Block all public access" — the API serves via presigned URLs); add CloudFront in front and set `AWS_S3_PUBLIC_BASE_URL` for cheap streaming
 - [ ] Restrict `BACKEND_CORS_ORIGINS` to known frontend hosts
 - [ ] Run behind a reverse proxy that sets `X-Forwarded-For` (rate limiter relies on it)
 - [ ] Use a managed Postgres + Redis with backups

@@ -26,7 +26,10 @@
       "Bash(curl -sf http://localhost:8000/api/v1/openapi.json)",
       "Bash(python -c \"import sys, json; d=json.load\\(sys.stdin\\); print\\([p for p in d['paths'] if 'admin' in p]\\)\")",
       "Bash(curl *)",
-      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\([p for p in d['paths'] if 'google' in p]\\)\")"
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\([p for p in d['paths'] if 'google' in p]\\)\")",
+      "Bash(python -c ' *)",
+      "Bash(python -c \"import json; json.load\\(open\\(r'D:/Project/satzone/postman/edure.postman_collection.json'\\)\\)\")",
+      "Bash(python -c \"import json; json.load\\(open\\(r'D:/Project/satzone/postman/edure.postman_environment.json'\\)\\)\")"
     ]
   }
 }

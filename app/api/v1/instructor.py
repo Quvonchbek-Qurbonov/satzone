@@ -47,7 +47,7 @@ from app.schemas.instructor_admin import (
     UploadResponse,
 )
 from app.services import assessment_service, instructor_service
-from app.utils.storage import save_upload
+from app.utils.storage import media_url, save_upload
 
 router = APIRouter(prefix="/instructor", tags=["instructor"])
 
@@ -109,10 +109,10 @@ async def upload_my_avatar(
 ) -> UploadResponse:
     await _require_instructor_role(user)
     inst = await instructor_service.require_my_instructor(session, user)
-    url, size = await save_upload(file, kind="image", subdir=f"instructors/{inst.id}/avatars")
-    inst.avatar_url = url
+    key, size = await save_upload(file, kind="image", subdir=f"instructors/{inst.id}/avatars")
+    inst.avatar_url = key
     await session.commit()
-    return UploadResponse(url=url, size_bytes=size)
+    return UploadResponse(url=media_url(key) or "", size_bytes=size)
 
 
 # ---------- Courses ----------
@@ -230,10 +230,10 @@ async def upload_course_thumbnail(
     await _require_instructor_role(user)
     inst = await instructor_service.require_my_instructor(session, user)
     course = await instructor_service.get_my_course(session, inst, course_id)
-    url, size = await save_upload(file, kind="image", subdir=f"courses/{course.id}/thumbnails")
-    course.thumbnail_url = url
+    key, size = await save_upload(file, kind="image", subdir=f"courses/{course.id}/thumbnails")
+    course.thumbnail_url = key
     await session.commit()
-    return UploadResponse(url=url, size_bytes=size)
+    return UploadResponse(url=media_url(key) or "", size_bytes=size)
 
 
 @router.post("/courses/{course_id}/preview-video", response_model=UploadResponse)
@@ -246,10 +246,10 @@ async def upload_course_preview_video(
     await _require_instructor_role(user)
     inst = await instructor_service.require_my_instructor(session, user)
     course = await instructor_service.get_my_course(session, inst, course_id)
-    url, size = await save_upload(file, kind="video", subdir=f"courses/{course.id}/preview")
-    course.preview_video_url = url
+    key, size = await save_upload(file, kind="video", subdir=f"courses/{course.id}/preview")
+    course.preview_video_url = key
     await session.commit()
-    return UploadResponse(url=url, size_bytes=size)
+    return UploadResponse(url=media_url(key) or "", size_bytes=size)
 
 
 # ---------- Sections ----------
@@ -403,13 +403,13 @@ async def upload_lesson_video(
     await _require_instructor_role(user)
     inst = await instructor_service.require_my_instructor(session, user)
     lesson = await instructor_service.get_my_lesson(session, inst, lesson_id)
-    url, _ = await save_upload(
+    key, _ = await save_upload(
         file,
         kind="video",
         subdir=f"courses/{lesson.section.course_id}/lessons/{lesson.id}",
     )
     lesson = await instructor_service.set_lesson_video(
-        session, inst, lesson_id, url=url, duration_seconds=duration_seconds
+        session, inst, lesson_id, url=key, duration_seconds=duration_seconds
     )
     return LessonAdminRead.model_validate(lesson)
 
@@ -424,13 +424,13 @@ async def upload_lesson_resource(
     await _require_instructor_role(user)
     inst = await instructor_service.require_my_instructor(session, user)
     lesson = await instructor_service.get_my_lesson(session, inst, lesson_id)
-    url, _ = await save_upload(
+    key, _ = await save_upload(
         file,
         kind="document",
         subdir=f"courses/{lesson.section.course_id}/lessons/{lesson.id}/resources",
     )
     lesson = await instructor_service.set_lesson_resource(
-        session, inst, lesson_id, url=url
+        session, inst, lesson_id, url=key
     )
     return LessonAdminRead.model_validate(lesson)
 

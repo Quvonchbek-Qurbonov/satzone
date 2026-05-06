@@ -65,8 +65,18 @@ class Settings(BaseSettings):
     GOOGLE_REDIRECT_URI: str | None = None
 
     # Media uploads (videos, images, resources)
-    MEDIA_ROOT: str = "media"
-    MEDIA_URL: str = "/media"
+    STORAGE_BACKEND: Literal["local", "s3"] = "local"
+    MEDIA_ROOT: str = "media"  # local backend
+    MEDIA_URL: str = "/media"  # local backend
+    AWS_ACCESS_KEY_ID: str | None = None
+    AWS_SECRET_ACCESS_KEY: str | None = None
+    AWS_REGION: str | None = None
+    AWS_S3_BUCKET: str | None = None
+    # When set, served URLs use this base (e.g. CloudFront) instead of presigning.
+    AWS_S3_PUBLIC_BASE_URL: str | None = None
+    # Lifetime of S3 presigned GET URLs (seconds). Default 1h — short enough that a
+    # leaked URL stops working quickly, long enough that page reloads don't churn.
+    AWS_S3_URL_TTL_SECONDS: int = 3600
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod

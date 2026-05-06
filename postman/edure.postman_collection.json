@@ -1198,17 +1198,231 @@
       "description": "Admin-only endpoints. Caller must have role=admin.",
       "item": [
         {
-          "name": "Promote user to instructor",
+          "name": "Users — list",
+          "request": { "method": "GET", "url": "{{base_url}}/admin/users?page=1&size=20" }
+        },
+        {
+          "name": "Users — get by id",
+          "request": { "method": "GET", "url": "{{base_url}}/admin/users/{{user_id}}" }
+        },
+        {
+          "name": "Users — patch (role / is_active / verify)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"role\": \"instructor\",\n  \"is_active\": true,\n  \"is_verified\": true\n}" },
+            "url": "{{base_url}}/admin/users/{{user_id}}"
+          }
+        },
+        {
+          "name": "Users — delete",
+          "request": { "method": "DELETE", "url": "{{base_url}}/admin/users/{{user_id}}" }
+        },
+        {
+          "name": "Users — promote to instructor",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"{{user_email}}\"\n}"
-            },
-            "url": "{{base_url}}/admin/users/promote-instructor",
-            "description": "Set the target user's role to `instructor` (idempotent; admins are left alone). Provide exactly one of `email` or `user_id`."
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{user_email}}\"\n}" },
+            "url": "{{base_url}}/admin/users/promote-instructor"
           }
+        },
+        {
+          "name": "Categories — list",
+          "request": { "method": "GET", "url": "{{base_url}}/admin/categories" }
+        },
+        {
+          "name": "Categories — create",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "const j = pm.response.json(); if (j.id) pm.environment.set('admin_category_id', j.id);"
+            ] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"SAT Math\",\n  \"description\": \"Algebra, geometry, data analysis\",\n  \"sort_order\": 0\n}" },
+            "url": "{{base_url}}/admin/categories"
+          }
+        },
+        {
+          "name": "Categories — patch",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"description\": \"Updated\"\n}" },
+            "url": "{{base_url}}/admin/categories/{{admin_category_id}}"
+          }
+        },
+        {
+          "name": "Categories — upload icon",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": [] }] },
+            "url": "{{base_url}}/admin/categories/{{admin_category_id}}/icon"
+          }
+        },
+        {
+          "name": "Categories — delete",
+          "request": { "method": "DELETE", "url": "{{base_url}}/admin/categories/{{admin_category_id}}" }
+        },
+        {
+          "name": "Instructors — list",
+          "request": { "method": "GET", "url": "{{base_url}}/admin/instructors?page=1&size=20" }
+        },
+        {
+          "name": "Instructors — create (freestanding)",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "const j = pm.response.json(); if (j.id) pm.environment.set('admin_instructor_id', j.id);"
+            ] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Jane Teacher\",\n  \"title\": \"SAT Coach\",\n  \"bio\": \"10 years SAT prep\"\n}" },
+            "url": "{{base_url}}/admin/instructors"
+          }
+        },
+        {
+          "name": "Instructors — patch",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Senior SAT Coach\"\n}" },
+            "url": "{{base_url}}/admin/instructors/{{admin_instructor_id}}"
+          }
+        },
+        {
+          "name": "Instructors — upload avatar",
+          "request": {
+            "method": "POST",
+            "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": [] }] },
+            "url": "{{base_url}}/admin/instructors/{{admin_instructor_id}}/avatar"
+          }
+        },
+        {
+          "name": "Instructors — delete",
+          "request": { "method": "DELETE", "url": "{{base_url}}/admin/instructors/{{admin_instructor_id}}" }
+        },
+        {
+          "name": "Courses — list (cross-instructor)",
+          "request": { "method": "GET", "url": "{{base_url}}/admin/courses?page=1&size=20" }
+        },
+        {
+          "name": "Courses — patch (set category/instructor/etc)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"is_featured\": true\n}" },
+            "url": "{{base_url}}/admin/courses/{{instructor_course_id}}"
+          }
+        },
+        {
+          "name": "Courses — publish / unpublish / archive",
+          "request": { "method": "POST", "url": "{{base_url}}/admin/courses/{{instructor_course_id}}/publish" }
+        },
+        {
+          "name": "Courses — feature / unfeature",
+          "request": { "method": "POST", "url": "{{base_url}}/admin/courses/{{instructor_course_id}}/feature" }
+        },
+        {
+          "name": "Courses — delete",
+          "request": { "method": "DELETE", "url": "{{base_url}}/admin/courses/{{instructor_course_id}}" }
+        },
+        {
+          "name": "Programs — list",
+          "request": { "method": "GET", "url": "{{base_url}}/admin/programs?page=1&size=20" }
+        },
+        {
+          "name": "Programs — create",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "const j = pm.response.json(); if (j.id) pm.environment.set('admin_program_id', j.id);"
+            ] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"SAT Mastery Track\",\n  \"subtitle\": \"From 1200 to 1500\",\n  \"description\": \"6 month path\",\n  \"duration_weeks\": 24,\n  \"price_cents\": 29900\n}" },
+            "url": "{{base_url}}/admin/programs"
+          }
+        },
+        {
+          "name": "Programs — patch",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"subtitle\": \"From 1200 to 1550\"\n}" },
+            "url": "{{base_url}}/admin/programs/{{admin_program_id}}"
+          }
+        },
+        {
+          "name": "Programs — publish",
+          "request": { "method": "POST", "url": "{{base_url}}/admin/programs/{{admin_program_id}}/publish" }
+        },
+        {
+          "name": "Programs — upload thumbnail",
+          "request": {
+            "method": "POST",
+            "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": [] }] },
+            "url": "{{base_url}}/admin/programs/{{admin_program_id}}/thumbnail"
+          }
+        },
+        {
+          "name": "Programs — list courses",
+          "request": { "method": "GET", "url": "{{base_url}}/admin/programs/{{admin_program_id}}/courses" }
+        },
+        {
+          "name": "Programs — add course",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"course_id\": \"{{instructor_course_id}}\",\n  \"order\": 0,\n  \"milestone_title\": \"Phase 1\",\n  \"is_required\": true\n}" },
+            "url": "{{base_url}}/admin/programs/{{admin_program_id}}/courses"
+          }
+        },
+        {
+          "name": "Programs — reorder courses",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"items\": [\n    { \"course_id\": \"{{instructor_course_id}}\", \"order\": 0 }\n  ]\n}" },
+            "url": "{{base_url}}/admin/programs/{{admin_program_id}}/courses/reorder"
+          }
+        },
+        {
+          "name": "Programs — remove course",
+          "request": { "method": "DELETE", "url": "{{base_url}}/admin/programs/{{admin_program_id}}/courses/{{instructor_course_id}}" }
+        },
+        {
+          "name": "Programs — delete",
+          "request": { "method": "DELETE", "url": "{{base_url}}/admin/programs/{{admin_program_id}}" }
+        },
+        {
+          "name": "Reviews — list",
+          "request": { "method": "GET", "url": "{{base_url}}/admin/reviews?page=1&size=20" }
+        },
+        {
+          "name": "Reviews — delete (moderate)",
+          "request": { "method": "DELETE", "url": "{{base_url}}/admin/reviews/{{review_id}}" }
+        },
+        {
+          "name": "Enrollments — list",
+          "request": { "method": "GET", "url": "{{base_url}}/admin/enrollments?page=1&size=20" }
+        },
+        {
+          "name": "Enrollments — delete",
+          "request": { "method": "DELETE", "url": "{{base_url}}/admin/enrollments/{{enrollment_id}}" }
+        },
+        {
+          "name": "Certificates — list",
+          "request": { "method": "GET", "url": "{{base_url}}/admin/certificates?page=1&size=20" }
+        },
+        {
+          "name": "Certificates — revoke",
+          "request": { "method": "DELETE", "url": "{{base_url}}/admin/certificates/{{certificate_id}}" }
         }
       ]
     }
