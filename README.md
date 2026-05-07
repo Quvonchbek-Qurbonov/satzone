@@ -76,7 +76,7 @@ uvicorn app.main:app --reload
 | Course detail      | `GET /courses/{slug}`, `/curriculum`, `/related`, `/reviews` (list/create/update/delete)        |
 | My Learnings       | `POST /me/enrollments`, `GET /me/enrollments`, `PUT .../lessons/{lesson_id}/progress`, `GET /me/certificates`, `/me/wishlist` |
 | Degree (Programs)  | `GET /programs`, `GET /programs/{slug}`, `POST /programs/{id}/enroll`, `GET /me/programs`       |
-| Account & Settings | `GET/PATCH/DELETE /me`, `PUT /me/password`, `GET/PATCH /me/preferences/notifications`, `GET/DELETE /me/sessions` |
+| Account & Settings | `GET/PATCH/DELETE /me`, `POST/DELETE /me/avatar` (multipart image upload), `PUT /me/password`, `GET/PATCH /me/preferences/notifications`, `GET/DELETE /me/sessions` |
 | Admin              | `/admin/users`, `/admin/categories`, `/admin/instructors`, `/admin/courses`, `/admin/programs` (+ `/programs/{id}/courses` linking), `/admin/reviews`, `/admin/enrollments`, `/admin/certificates` — full CRUD + lifecycle (`publish`/`unpublish`/`archive`) + media uploads. All routes gated by `role=admin`. |
 
 ## Video streaming protection

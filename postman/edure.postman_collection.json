@@ -1768,9 +1768,33 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"full_name\": \"Demo User Updated\",\n  \"avatar_url\": \"https://cdn.example.com/avatar.png\"\n}"
+              "raw": "{\n  \"full_name\": \"Demo User Updated\"\n}"
             },
             "url": "{{base_url}}/me"
+          }
+        },
+        {
+          "name": "Upload my avatar",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": "{{base_url}}/me/avatar"
+          }
+        },
+        {
+          "name": "Delete my avatar",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/me/avatar"
           }
         },
         {

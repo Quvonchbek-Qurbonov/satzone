@@ -34,7 +34,11 @@ class UserMe(ORMModel):
 
 class UserUpdate(ORMModel):
     full_name: str | None = Field(default=None, min_length=1, max_length=150)
-    avatar_url: str | None = Field(default=None, max_length=500)
+
+
+class AvatarUploadResponse(ORMModel):
+    avatar_url: str | None = None
+    size_bytes: int
 
 
 class PasswordChange(ORMModel):

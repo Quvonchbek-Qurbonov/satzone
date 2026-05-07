@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, File, UploadFile, status
 from sqlalchemy import select, update
 
 from app.api.deps import CurrentUser
@@ -14,6 +14,7 @@ from app.models.auth import RefreshToken
 from app.models.user import NotificationPreference
 from app.schemas.base import Message
 from app.schemas.user import (
+    AvatarUploadResponse,
     NotificationPreferenceSchema,
     NotificationPreferenceUpdate,
     PasswordChange,
@@ -21,6 +22,7 @@ from app.schemas.user import (
     UserUpdate,
 )
 from app.services import auth_service
+from app.utils.storage import media_url, save_upload
 
 router = APIRouter(prefix="/me", tags=["account"])
 
@@ -51,6 +53,24 @@ async def change_password(
         new_password=payload.new_password,
     )
     return Message(message="Password changed")
+
+
+@router.post("/avatar", response_model=AvatarUploadResponse)
+async def upload_my_avatar(
+    user: CurrentUser,
+    session: DbSession,
+    file: Annotated[UploadFile, File(...)],
+) -> AvatarUploadResponse:
+    key, size = await save_upload(file, kind="image", subdir=f"users/{user.id}/avatars")
+    user.avatar_url = key
+    await session.commit()
+    return AvatarUploadResponse(avatar_url=media_url(key), size_bytes=size)
+
+
+@router.delete("/avatar", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_my_avatar(user: CurrentUser, session: DbSession) -> None:
+    user.avatar_url = None
+    await session.commit()
 
 
 @router.delete("", status_code=status.HTTP_204_NO_CONTENT)

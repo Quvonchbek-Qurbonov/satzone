@@ -632,6 +632,69 @@
         ]
       }
     },
+    "/api/v1/me/avatar": {
+      "post": {
+        "tags": [
+          "account"
+        ],
+        "summary": "Upload My Avatar",
+        "operationId": "upload_my_avatar_api_v1_me_avatar_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_my_avatar_api_v1_me_avatar_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvatarUploadResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "account"
+        ],
+        "summary": "Delete My Avatar",
+        "operationId": "delete_my_avatar_api_v1_me_avatar_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me/password": {
       "put": {
         "tags": [
@@ -14711,22 +14774,48 @@
               }
             ],
             "title": "Full Name"
-          },
+          }
+        },
+        "type": "object",
+        "title": "UserUpdate"
+      },
+      "AvatarUploadResponse": {
+        "properties": {
           "avatar_url": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 500
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
             "title": "Avatar Url"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "title": "Size Bytes"
           }
         },
         "type": "object",
-        "title": "UserUpdate"
+        "required": [
+          "size_bytes"
+        ],
+        "title": "AvatarUploadResponse"
+      },
+      "Body_upload_my_avatar_api_v1_me_avatar_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_my_avatar_api_v1_me_avatar_post"
       },
       "ValidationError": {
         "properties": {
