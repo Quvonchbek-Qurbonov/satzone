@@ -8,11 +8,14 @@ from pydantic import BaseModel, ConfigDict, field_serializer
 # At serialization time they're resolved to a fresh URL — presigned for S3, or
 # the static-media URL for local. Absolute URLs already in the value pass
 # through unchanged, so seed data and external avatars keep working.
+#
+# Deliberately excluded: ``video_url`` and ``preview_video_url``. Lesson and
+# course preview videos are NEVER returned as direct URLs. The client must hit
+# the auth-gated ``/playback`` endpoint to receive a short-lived signed
+# streaming URL — see ``app/api/v1/streaming.py``.
 _MEDIA_FIELDS = (
     "avatar_url",
     "thumbnail_url",
-    "preview_video_url",
-    "video_url",
     "resource_url",
     "icon_url",
 )

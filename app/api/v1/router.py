@@ -9,6 +9,7 @@ from app.api.v1 import (
     auth,
     categories,
     courses,
+    drm,
     enrollments,
     health,
     home,
@@ -16,6 +17,7 @@ from app.api.v1 import (
     instructors,
     onboarding,
     programs,
+    streaming,
     wishlist,
 )
 from app.middleware.rate_limit import rate_limit_default
@@ -37,4 +39,6 @@ api_router.include_router(programs.router)
 api_router.include_router(programs.me_router)
 api_router.include_router(instructor.router)
 api_router.include_router(assessments.router)
+api_router.include_router(streaming.router)
+api_router.include_router(drm.router)
 api_router.include_router(admin.router)

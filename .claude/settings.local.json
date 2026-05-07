@@ -29,7 +29,10 @@
       "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\([p for p in d['paths'] if 'google' in p]\\)\")",
       "Bash(python -c ' *)",
       "Bash(python -c \"import json; json.load\\(open\\(r'D:/Project/satzone/postman/edure.postman_collection.json'\\)\\)\")",
-      "Bash(python -c \"import json; json.load\\(open\\(r'D:/Project/satzone/postman/edure.postman_environment.json'\\)\\)\")"
+      "Bash(python -c \"import json; json.load\\(open\\(r'D:/Project/satzone/postman/edure.postman_environment.json'\\)\\)\")",
+      "PowerShell(Get-ChildItem -Path \"D:\\\\Project\\\\satzone\" -Force | Where-Object { $_.Name -ne \".venv\" -and $_.Name -ne \".git\" } | Select-Object Mode, Name)",
+      "Bash(python *)",
+      "Read(//tmp/**)"
     ]
   }
 }

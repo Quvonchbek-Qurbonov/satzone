@@ -20,6 +20,7 @@ from app.models.enrollment import Enrollment, LessonProgress, Wishlist
 from app.models.enums import (
     AssessmentStatus,
     CourseLevel,
+    HlsStatus,
     LessonType,
     NotificationType,
     PublishStatus,
@@ -27,6 +28,7 @@ from app.models.enums import (
     SkillLevel,
     UserRole,
 )
+from app.models.media import MediaKey
 from app.models.notification import Notification
 from app.models.program import Program, ProgramCourse, ProgramEnrollment
 from app.models.review import Review
@@ -43,8 +45,10 @@ __all__ = [
     "CourseLevel",
     "CourseSection",
     "Enrollment",
+    "HlsStatus",
     "Instructor",
     "Lesson",
+    "MediaKey",
     "LessonProgress",
     "LessonType",
     "Notification",

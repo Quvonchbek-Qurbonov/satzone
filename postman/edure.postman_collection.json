@@ -7,10 +7,19 @@
   },
   "auth": {
     "type": "bearer",
-    "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
   },
   "variable": [
-    { "key": "base_url", "value": "http://localhost:8000/api/v1" }
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000/api/v1"
+    }
   ],
   "item": [
     {
@@ -19,7 +28,9 @@
         {
           "name": "Liveness",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "url": "{{base_url}}/health"
           }
@@ -27,7 +38,9 @@
         {
           "name": "Readiness (db + redis)",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "url": "{{base_url}}/ready"
           }
@@ -52,9 +65,16 @@
             }
           ],
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"new-user-{{$timestamp}}@edure.local\",\n  \"full_name\": \"New User\",\n  \"password\": \"Sup3rSecret!\"\n}"
@@ -79,9 +99,16 @@
             }
           ],
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{user_email}}\",\n  \"password\": \"{{user_password}}\"\n}"
@@ -106,9 +133,16 @@
             }
           ],
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
@@ -119,9 +153,16 @@
         {
           "name": "Logout",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
@@ -139,9 +180,16 @@
         {
           "name": "Verify email",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"token\": \"{{verify_token}}\"\n}"
@@ -152,9 +200,16 @@
         {
           "name": "Resend verification",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{user_email}}\"\n}"
@@ -165,9 +220,16 @@
         {
           "name": "Password — forgot",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{user_email}}\"\n}"
@@ -178,9 +240,16 @@
         {
           "name": "Password — reset",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"token\": \"{{reset_token}}\",\n  \"new_password\": \"BrandNewPass123!\"\n}"
@@ -195,13 +264,21 @@
       "item": [
         {
           "name": "Get onboarding",
-          "request": { "method": "GET", "url": "{{base_url}}/onboarding" }
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/onboarding"
+          }
         },
         {
           "name": "Update onboarding",
           "request": {
             "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"headline\": \"Aspiring backend engineer\",\n  \"bio\": \"Learning Python and FastAPI.\",\n  \"skill_level\": \"intermediate\",\n  \"weekly_goal_minutes\": 300,\n  \"learning_goal\": \"Ship a SaaS in 90 days\",\n  \"locale\": \"en\",\n  \"timezone\": \"UTC\",\n  \"interest_category_ids\": [\"{{category_id}}\"],\n  \"mark_completed\": true\n}"
@@ -217,7 +294,10 @@
         {
           "name": "Home feed",
           "description": "Personalized when an Authorization header is present (uses interests). Anonymous-safe.",
-          "request": { "method": "GET", "url": "{{base_url}}/home" }
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/home"
+          }
         }
       ]
     },
@@ -239,7 +319,9 @@
             }
           ],
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "url": "{{base_url}}/categories"
           }
@@ -247,7 +329,9 @@
         {
           "name": "Category tree",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "url": "{{base_url}}/categories/tree"
           }
@@ -255,16 +339,32 @@
         {
           "name": "List instructors",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "url": {
               "raw": "{{base_url}}/instructors?page=1&size=20",
-              "host": ["{{base_url}}"],
-              "path": ["instructors"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "instructors"
+              ],
               "query": [
-                { "key": "page", "value": "1" },
-                { "key": "size", "value": "20" },
-                { "key": "search", "value": "", "disabled": true }
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                }
               ]
             }
           }
@@ -272,7 +372,9 @@
         {
           "name": "Get instructor by slug",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "url": "{{base_url}}/instructors/{{instructor_slug}}"
           }
@@ -295,26 +397,85 @@
             }
           ],
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "url": {
               "raw": "{{base_url}}/courses?page=1&size=20&sort=popular",
-              "host": ["{{base_url}}"],
-              "path": ["courses"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "courses"
+              ],
               "query": [
-                { "key": "page", "value": "1" },
-                { "key": "size", "value": "20" },
-                { "key": "sort", "value": "popular", "description": "popular | newest | rating | price_asc | price_desc" },
-                { "key": "search", "value": "", "disabled": true },
-                { "key": "category_slug", "value": "", "disabled": true },
-                { "key": "category_id", "value": "", "disabled": true },
-                { "key": "instructor_id", "value": "", "disabled": true },
-                { "key": "level", "value": "", "description": "beginner | intermediate | advanced | all_levels", "disabled": true },
-                { "key": "is_free", "value": "", "description": "true | false", "disabled": true },
-                { "key": "min_rating", "value": "", "disabled": true },
-                { "key": "min_duration_minutes", "value": "", "disabled": true },
-                { "key": "max_duration_minutes", "value": "", "disabled": true },
-                { "key": "tags", "value": "", "description": "Repeat the param, e.g. tags=python&tags=fastapi", "disabled": true }
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                },
+                {
+                  "key": "sort",
+                  "value": "popular",
+                  "description": "popular | newest | rating | price_asc | price_desc"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "category_slug",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "category_id",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "instructor_id",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "level",
+                  "value": "",
+                  "description": "beginner | intermediate | advanced | all_levels",
+                  "disabled": true
+                },
+                {
+                  "key": "is_free",
+                  "value": "",
+                  "description": "true | false",
+                  "disabled": true
+                },
+                {
+                  "key": "min_rating",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "min_duration_minutes",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "max_duration_minutes",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "tags",
+                  "value": "",
+                  "description": "Repeat the param, e.g. tags=python&tags=fastapi",
+                  "disabled": true
+                }
               ]
             }
           }
@@ -322,7 +483,9 @@
         {
           "name": "Course detail",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "url": "{{base_url}}/courses/{{course_slug}}"
           }
@@ -344,7 +507,9 @@
             }
           ],
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "url": "{{base_url}}/courses/{{course_slug}}/curriculum"
           }
@@ -352,7 +517,9 @@
         {
           "name": "Related courses",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "url": "{{base_url}}/courses/{{course_slug}}/related"
           }
@@ -365,15 +532,29 @@
         {
           "name": "List reviews",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "url": {
               "raw": "{{base_url}}/courses/{{course_slug}}/reviews?page=1&size=20",
-              "host": ["{{base_url}}"],
-              "path": ["courses", "{{course_slug}}", "reviews"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "courses",
+                "{{course_slug}}",
+                "reviews"
+              ],
               "query": [
-                { "key": "page", "value": "1" },
-                { "key": "size", "value": "20" }
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
               ]
             }
           }
@@ -382,7 +563,12 @@
           "name": "Create review (must be enrolled)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"rating\": 5,\n  \"comment\": \"Excellent — exactly what I needed.\"\n}"
@@ -394,7 +580,12 @@
           "name": "Update my review",
           "request": {
             "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"rating\": 4,\n  \"comment\": \"Updated my take after finishing the course.\"\n}"
@@ -430,7 +621,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"course_id\": \"{{course_id}}\"\n}"
@@ -444,12 +640,27 @@
             "method": "GET",
             "url": {
               "raw": "{{base_url}}/me/enrollments?page=1&size=20&status=all",
-              "host": ["{{base_url}}"],
-              "path": ["me", "enrollments"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "me",
+                "enrollments"
+              ],
               "query": [
-                { "key": "page", "value": "1" },
-                { "key": "size", "value": "20" },
-                { "key": "status", "value": "all", "description": "all | active | completed" }
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                },
+                {
+                  "key": "status",
+                  "value": "all",
+                  "description": "all | active | completed"
+                }
               ]
             }
           }
@@ -465,7 +676,12 @@
           "name": "Update lesson progress",
           "request": {
             "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"last_position_seconds\": 120,\n  \"watched_seconds\": 180,\n  \"completed\": true\n}"
@@ -493,11 +709,22 @@
             "method": "GET",
             "url": {
               "raw": "{{base_url}}/me/wishlist?page=1&size=20",
-              "host": ["{{base_url}}"],
-              "path": ["me", "wishlist"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "me",
+                "wishlist"
+              ],
               "query": [
-                { "key": "page", "value": "1" },
-                { "key": "size", "value": "20" }
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
               ]
             }
           }
@@ -515,6 +742,192 @@
             "method": "DELETE",
             "url": "{{base_url}}/me/wishlist/{{course_id}}"
           }
+        }
+      ]
+    },
+    {
+      "name": "Video Streaming",
+      "description": "Auth-gated video playback. Lessons are HLS-only — there is no direct-MP4 endpoint, because plain MP4 over HTTP is downloadable. Tokens are bound to the requester's IP (cip claim); the same token replayed from a different network returns 401.",
+      "item": [
+        {
+          "name": "Lesson playback (capture HLS URL + token)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/lessons/{{lesson_id}}/playback",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lessons",
+                "{{lesson_id}}",
+                "playback"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.hls_url) {",
+                  "  pm.environment.set('lesson_hls_url', j.hls_url);",
+                  "  const t = (j.hls_url.split('t=')[1] || '');",
+                  "  pm.environment.set('playback_token', t);",
+                  "}",
+                  "pm.test('playback issued', () => pm.expect(j).to.have.property('expires_at'));",
+                  "pm.test('hls is the only path', () => pm.expect(j).to.not.have.property('stream_url'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lesson HLS — master playlist",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/lessons/{{lesson_id}}/hls/master.m3u8",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lessons",
+                "{{lesson_id}}",
+                "hls",
+                "master.m3u8"
+              ],
+              "query": [
+                {
+                  "key": "t",
+                  "value": "{{playback_token}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Lesson HLS — content key (raw 16 bytes)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/lessons/{{lesson_id}}/hls/key",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lessons",
+                "{{lesson_id}}",
+                "hls",
+                "key"
+              ],
+              "query": [
+                {
+                  "key": "t",
+                  "value": "{{playback_token}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Lesson HLS — first segment (encrypted .ts)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/lessons/{{lesson_id}}/hls/seg/seg_0000.ts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lessons",
+                "{{lesson_id}}",
+                "hls",
+                "seg",
+                "seg_0000.ts"
+              ],
+              "query": [
+                {
+                  "key": "t",
+                  "value": "{{playback_token}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Course preview playback (marketing video — direct MP4 OK)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/courses/{{course_slug}}/preview-playback",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "courses",
+                "{{course_slug}}",
+                "preview-playback"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.stream_url) {",
+                  "  const t = (j.stream_url.split('t=')[1] || '');",
+                  "  pm.environment.set('preview_token', t);",
+                  "  pm.environment.set('preview_stream_url', j.stream_url);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DRM license proxy (raw binary challenge)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/lessons/{{lesson_id}}/drm/license",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "lessons",
+                "{{lesson_id}}",
+                "drm",
+                "license"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "<binary EME challenge bytes>"
+            }
+          },
+          "response": []
         }
       ]
     },
@@ -539,15 +952,27 @@
             }
           ],
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "url": {
               "raw": "{{base_url}}/programs?page=1&size=20",
-              "host": ["{{base_url}}"],
-              "path": ["programs"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "programs"
+              ],
               "query": [
-                { "key": "page", "value": "1" },
-                { "key": "size", "value": "20" }
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
               ]
             }
           }
@@ -555,7 +980,9 @@
         {
           "name": "Program detail",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "url": "{{base_url}}/programs/{{program_slug}}"
           }
@@ -573,11 +1000,22 @@
             "method": "GET",
             "url": {
               "raw": "{{base_url}}/me/programs?page=1&size=20",
-              "host": ["{{base_url}}"],
-              "path": ["me", "programs"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "me",
+                "programs"
+              ],
               "query": [
-                { "key": "page", "value": "1" },
-                { "key": "size", "value": "20" }
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
               ]
             }
           }
@@ -590,13 +1028,21 @@
       "item": [
         {
           "name": "Get my profile",
-          "request": { "method": "GET", "url": "{{base_url}}/instructor/me/profile" }
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/instructor/me/profile"
+          }
         },
         {
           "name": "Upsert my profile",
           "request": {
             "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Instructor Demo\",\n  \"title\": \"Senior Engineer\",\n  \"bio\": \"Teaches APIs.\",\n  \"expertise\": [\"python\", \"fastapi\"],\n  \"linkedin_url\": null,\n  \"twitter_url\": null,\n  \"website_url\": null\n}"
@@ -608,7 +1054,12 @@
           "name": "Patch my profile",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"bio\": \"Updated bio.\"\n}"
@@ -622,7 +1073,13 @@
             "method": "POST",
             "body": {
               "mode": "formdata",
-              "formdata": [{ "key": "file", "type": "file", "src": [] }]
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
             },
             "url": "{{base_url}}/instructor/me/profile/avatar"
           }
@@ -645,7 +1102,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"title\": \"My New Course\",\n  \"subtitle\": \"Short pitch\",\n  \"description\": \"A reasonably long description suitable for publish.\",\n  \"category_id\": \"{{category_id}}\",\n  \"level\": \"beginner\",\n  \"price_cents\": 4999,\n  \"tags\": [\"api\", \"smoke\"]\n}"
@@ -659,13 +1121,33 @@
             "method": "GET",
             "url": {
               "raw": "{{base_url}}/instructor/courses?page=1&size=20",
-              "host": ["{{base_url}}"],
-              "path": ["instructor", "courses"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "instructor",
+                "courses"
+              ],
               "query": [
-                { "key": "page", "value": "1" },
-                { "key": "size", "value": "20" },
-                { "key": "status", "value": "", "description": "draft | published | archived", "disabled": true },
-                { "key": "search", "value": "", "disabled": true }
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "draft | published | archived",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                }
               ]
             }
           }
@@ -681,7 +1163,12 @@
           "name": "Patch course",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"subtitle\": \"Updated subtitle\",\n  \"discount_price_cents\": 2999\n}"
@@ -723,7 +1210,13 @@
             "method": "POST",
             "body": {
               "mode": "formdata",
-              "formdata": [{ "key": "file", "type": "file", "src": [] }]
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
             },
             "url": "{{base_url}}/instructor/courses/{{instructor_course_id}}/thumbnail"
           }
@@ -734,7 +1227,13 @@
             "method": "POST",
             "body": {
               "mode": "formdata",
-              "formdata": [{ "key": "file", "type": "file", "src": [] }]
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
             },
             "url": "{{base_url}}/instructor/courses/{{instructor_course_id}}/preview-video"
           }
@@ -763,8 +1262,16 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Intro\"\n}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Intro\"\n}"
+            },
             "url": "{{base_url}}/instructor/courses/{{instructor_course_id}}/sections"
           }
         },
@@ -772,7 +1279,12 @@
           "name": "Reorder sections",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"items\": [\n    {\"id\": \"{{section_id}}\", \"order\": 0}\n  ]\n}"
@@ -784,8 +1296,16 @@
           "name": "Update section",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Intro (renamed)\"\n}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Intro (renamed)\"\n}"
+            },
             "url": "{{base_url}}/instructor/sections/{{section_id}}"
           }
         },
@@ -820,7 +1340,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"title\": \"Welcome\",\n  \"type\": \"video\",\n  \"duration_seconds\": 120,\n  \"is_free_preview\": true\n}"
@@ -832,7 +1357,12 @@
           "name": "Reorder lessons",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"items\": [\n    {\"id\": \"{{instructor_lesson_id}}\", \"order\": 0}\n  ]\n}"
@@ -844,7 +1374,12 @@
           "name": "Update lesson",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"description\": \"Updated description.\"\n}"
@@ -866,8 +1401,16 @@
             "body": {
               "mode": "formdata",
               "formdata": [
-                { "key": "file", "type": "file", "src": [] },
-                { "key": "duration_seconds", "value": "180", "type": "text" }
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "duration_seconds",
+                  "value": "180",
+                  "type": "text"
+                }
               ]
             },
             "url": "{{base_url}}/instructor/lessons/{{instructor_lesson_id}}/video"
@@ -879,7 +1422,13 @@
             "method": "POST",
             "body": {
               "mode": "formdata",
-              "formdata": [{ "key": "file", "type": "file", "src": [] }]
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
             },
             "url": "{{base_url}}/instructor/lessons/{{instructor_lesson_id}}/resource"
           }
@@ -890,12 +1439,29 @@
             "method": "GET",
             "url": {
               "raw": "{{base_url}}/instructor/courses/{{instructor_course_id}}/students?page=1&size=20&status=all",
-              "host": ["{{base_url}}"],
-              "path": ["instructor", "courses", "{{instructor_course_id}}", "students"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "instructor",
+                "courses",
+                "{{instructor_course_id}}",
+                "students"
+              ],
               "query": [
-                { "key": "page", "value": "1" },
-                { "key": "size", "value": "20" },
-                { "key": "status", "value": "all", "description": "all | active | completed" }
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                },
+                {
+                  "key": "status",
+                  "value": "all",
+                  "description": "all | active | completed"
+                }
               ]
             }
           }
@@ -919,11 +1485,24 @@
             "method": "GET",
             "url": {
               "raw": "{{base_url}}/instructor/courses/{{instructor_course_id}}/assessments?page=1&size=20",
-              "host": ["{{base_url}}"],
-              "path": ["instructor", "courses", "{{instructor_course_id}}", "assessments"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "instructor",
+                "courses",
+                "{{instructor_course_id}}",
+                "assessments"
+              ],
               "query": [
-                { "key": "page", "value": "1" },
-                { "key": "size", "value": "20" }
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
               ]
             }
           }
@@ -945,7 +1524,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"title\": \"Quiz 1\",\n  \"description\": \"Basic check\",\n  \"pass_percent\": 50,\n  \"max_attempts\": 3,\n  \"shuffle_questions\": false,\n  \"show_correct_answers\": true\n}"
@@ -964,7 +1548,12 @@
           "name": "Patch assessment",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"status\": \"published\"\n}"
@@ -1000,7 +1589,12 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"type\": \"single_choice\",\n  \"prompt\": \"What is 2 + 2?\",\n  \"points\": 1,\n  \"options\": [\n    {\"text\": \"3\", \"is_correct\": false},\n    {\"text\": \"4\", \"is_correct\": true},\n    {\"text\": \"5\", \"is_correct\": false}\n  ]\n}"
@@ -1012,7 +1606,12 @@
           "name": "Add question (short_answer)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"type\": \"short_answer\",\n  \"prompt\": \"Capital of France?\",\n  \"points\": 1,\n  \"expected_answers\": [\"Paris\"]\n}"
@@ -1024,7 +1623,12 @@
           "name": "Update question",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"prompt\": \"Updated prompt\",\n  \"points\": 2\n}"
@@ -1045,11 +1649,24 @@
             "method": "GET",
             "url": {
               "raw": "{{base_url}}/instructor/assessments/{{assessment_id}}/submissions?page=1&size=20",
-              "host": ["{{base_url}}"],
-              "path": ["instructor", "assessments", "{{assessment_id}}", "submissions"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "instructor",
+                "assessments",
+                "{{assessment_id}}",
+                "submissions"
+              ],
               "query": [
-                { "key": "page", "value": "1" },
-                { "key": "size", "value": "20" }
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
               ]
             }
           }
@@ -1066,7 +1683,12 @@
           "name": "Submit assessment (student)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"answers\": [\n    {\"question_id\": \"{{question_id}}\", \"selected_option_ids\": [\"{{option_id}}\"]}\n  ]\n}"
@@ -1097,7 +1719,12 @@
           "name": "Update me",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"full_name\": \"Demo User Updated\",\n  \"avatar_url\": \"https://cdn.example.com/avatar.png\"\n}"
@@ -1109,7 +1736,12 @@
           "name": "Change password",
           "request": {
             "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"current_password\": \"{{user_password}}\",\n  \"new_password\": \"BrandNewPass123!\"\n}"
@@ -1135,7 +1767,12 @@
           "name": "Update notification preferences",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email_marketing\": false,\n  \"email_announcements\": true,\n  \"email_course_updates\": true,\n  \"push_enabled\": true\n}"
@@ -1185,7 +1822,9 @@
         {
           "name": "Start Google sign-in (open in browser)",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "url": "{{base_url}}/auth/google/login",
             "description": "Returns 307 → https://accounts.google.com/... Postman won't render Google's UI; right-click the request and 'Open in Browser' to actually consent."
@@ -1199,49 +1838,91 @@
       "item": [
         {
           "name": "Users — list",
-          "request": { "method": "GET", "url": "{{base_url}}/admin/users?page=1&size=20" }
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/admin/users?page=1&size=20"
+          }
         },
         {
           "name": "Users — get by id",
-          "request": { "method": "GET", "url": "{{base_url}}/admin/users/{{user_id}}" }
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/admin/users/{{user_id}}"
+          }
         },
         {
           "name": "Users — patch (role / is_active / verify)",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"role\": \"instructor\",\n  \"is_active\": true,\n  \"is_verified\": true\n}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"instructor\",\n  \"is_active\": true,\n  \"is_verified\": true\n}"
+            },
             "url": "{{base_url}}/admin/users/{{user_id}}"
           }
         },
         {
           "name": "Users — delete",
-          "request": { "method": "DELETE", "url": "{{base_url}}/admin/users/{{user_id}}" }
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/admin/users/{{user_id}}"
+          }
         },
         {
           "name": "Users — promote to instructor",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{user_email}}\"\n}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{user_email}}\"\n}"
+            },
             "url": "{{base_url}}/admin/users/promote-instructor"
           }
         },
         {
           "name": "Categories — list",
-          "request": { "method": "GET", "url": "{{base_url}}/admin/categories" }
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/admin/categories"
+          }
         },
         {
           "name": "Categories — create",
           "event": [
-            { "listen": "test", "script": { "type": "text/javascript", "exec": [
-              "const j = pm.response.json(); if (j.id) pm.environment.set('admin_category_id', j.id);"
-            ] } }
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json(); if (j.id) pm.environment.set('admin_category_id', j.id);"
+                ]
+              }
+            }
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"name\": \"SAT Math\",\n  \"description\": \"Algebra, geometry, data analysis\",\n  \"sort_order\": 0\n}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"SAT Math\",\n  \"description\": \"Algebra, geometry, data analysis\",\n  \"sort_order\": 0\n}"
+            },
             "url": "{{base_url}}/admin/categories"
           }
         },
@@ -1249,8 +1930,16 @@
           "name": "Categories — patch",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"description\": \"Updated\"\n}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Updated\"\n}"
+            },
             "url": "{{base_url}}/admin/categories/{{admin_category_id}}"
           }
         },
@@ -1259,29 +1948,58 @@
           "request": {
             "method": "POST",
             "header": [],
-            "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": [] }] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
             "url": "{{base_url}}/admin/categories/{{admin_category_id}}/icon"
           }
         },
         {
           "name": "Categories — delete",
-          "request": { "method": "DELETE", "url": "{{base_url}}/admin/categories/{{admin_category_id}}" }
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/admin/categories/{{admin_category_id}}"
+          }
         },
         {
           "name": "Instructors — list",
-          "request": { "method": "GET", "url": "{{base_url}}/admin/instructors?page=1&size=20" }
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/admin/instructors?page=1&size=20"
+          }
         },
         {
           "name": "Instructors — create (freestanding)",
           "event": [
-            { "listen": "test", "script": { "type": "text/javascript", "exec": [
-              "const j = pm.response.json(); if (j.id) pm.environment.set('admin_instructor_id', j.id);"
-            ] } }
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json(); if (j.id) pm.environment.set('admin_instructor_id', j.id);"
+                ]
+              }
+            }
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Jane Teacher\",\n  \"title\": \"SAT Coach\",\n  \"bio\": \"10 years SAT prep\"\n}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane Teacher\",\n  \"title\": \"SAT Coach\",\n  \"bio\": \"10 years SAT prep\"\n}"
+            },
             "url": "{{base_url}}/admin/instructors"
           }
         },
@@ -1289,8 +2007,16 @@
           "name": "Instructors — patch",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Senior SAT Coach\"\n}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Senior SAT Coach\"\n}"
+            },
             "url": "{{base_url}}/admin/instructors/{{admin_instructor_id}}"
           }
         },
@@ -1298,54 +2024,103 @@
           "name": "Instructors — upload avatar",
           "request": {
             "method": "POST",
-            "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": [] }] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
             "url": "{{base_url}}/admin/instructors/{{admin_instructor_id}}/avatar"
           }
         },
         {
           "name": "Instructors — delete",
-          "request": { "method": "DELETE", "url": "{{base_url}}/admin/instructors/{{admin_instructor_id}}" }
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/admin/instructors/{{admin_instructor_id}}"
+          }
         },
         {
           "name": "Courses — list (cross-instructor)",
-          "request": { "method": "GET", "url": "{{base_url}}/admin/courses?page=1&size=20" }
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/admin/courses?page=1&size=20"
+          }
         },
         {
           "name": "Courses — patch (set category/instructor/etc)",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"is_featured\": true\n}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_featured\": true\n}"
+            },
             "url": "{{base_url}}/admin/courses/{{instructor_course_id}}"
           }
         },
         {
           "name": "Courses — publish / unpublish / archive",
-          "request": { "method": "POST", "url": "{{base_url}}/admin/courses/{{instructor_course_id}}/publish" }
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/admin/courses/{{instructor_course_id}}/publish"
+          }
         },
         {
           "name": "Courses — feature / unfeature",
-          "request": { "method": "POST", "url": "{{base_url}}/admin/courses/{{instructor_course_id}}/feature" }
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/admin/courses/{{instructor_course_id}}/feature"
+          }
         },
         {
           "name": "Courses — delete",
-          "request": { "method": "DELETE", "url": "{{base_url}}/admin/courses/{{instructor_course_id}}" }
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/admin/courses/{{instructor_course_id}}"
+          }
         },
         {
           "name": "Programs — list",
-          "request": { "method": "GET", "url": "{{base_url}}/admin/programs?page=1&size=20" }
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/admin/programs?page=1&size=20"
+          }
         },
         {
           "name": "Programs — create",
           "event": [
-            { "listen": "test", "script": { "type": "text/javascript", "exec": [
-              "const j = pm.response.json(); if (j.id) pm.environment.set('admin_program_id', j.id);"
-            ] } }
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json(); if (j.id) pm.environment.set('admin_program_id', j.id);"
+                ]
+              }
+            }
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"title\": \"SAT Mastery Track\",\n  \"subtitle\": \"From 1200 to 1500\",\n  \"description\": \"6 month path\",\n  \"duration_weeks\": 24,\n  \"price_cents\": 29900\n}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"SAT Mastery Track\",\n  \"subtitle\": \"From 1200 to 1500\",\n  \"description\": \"6 month path\",\n  \"duration_weeks\": 24,\n  \"price_cents\": 29900\n}"
+            },
             "url": "{{base_url}}/admin/programs"
           }
         },
@@ -1353,33 +2128,64 @@
           "name": "Programs — patch",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"subtitle\": \"From 1200 to 1550\"\n}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subtitle\": \"From 1200 to 1550\"\n}"
+            },
             "url": "{{base_url}}/admin/programs/{{admin_program_id}}"
           }
         },
         {
           "name": "Programs — publish",
-          "request": { "method": "POST", "url": "{{base_url}}/admin/programs/{{admin_program_id}}/publish" }
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/admin/programs/{{admin_program_id}}/publish"
+          }
         },
         {
           "name": "Programs — upload thumbnail",
           "request": {
             "method": "POST",
-            "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": [] }] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
             "url": "{{base_url}}/admin/programs/{{admin_program_id}}/thumbnail"
           }
         },
         {
           "name": "Programs — list courses",
-          "request": { "method": "GET", "url": "{{base_url}}/admin/programs/{{admin_program_id}}/courses" }
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/admin/programs/{{admin_program_id}}/courses"
+          }
         },
         {
           "name": "Programs — add course",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"course_id\": \"{{instructor_course_id}}\",\n  \"order\": 0,\n  \"milestone_title\": \"Phase 1\",\n  \"is_required\": true\n}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"course_id\": \"{{instructor_course_id}}\",\n  \"order\": 0,\n  \"milestone_title\": \"Phase 1\",\n  \"is_required\": true\n}"
+            },
             "url": "{{base_url}}/admin/programs/{{admin_program_id}}/courses"
           }
         },
@@ -1387,42 +2193,74 @@
           "name": "Programs — reorder courses",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"items\": [\n    { \"course_id\": \"{{instructor_course_id}}\", \"order\": 0 }\n  ]\n}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    { \"course_id\": \"{{instructor_course_id}}\", \"order\": 0 }\n  ]\n}"
+            },
             "url": "{{base_url}}/admin/programs/{{admin_program_id}}/courses/reorder"
           }
         },
         {
           "name": "Programs — remove course",
-          "request": { "method": "DELETE", "url": "{{base_url}}/admin/programs/{{admin_program_id}}/courses/{{instructor_course_id}}" }
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/admin/programs/{{admin_program_id}}/courses/{{instructor_course_id}}"
+          }
         },
         {
           "name": "Programs — delete",
-          "request": { "method": "DELETE", "url": "{{base_url}}/admin/programs/{{admin_program_id}}" }
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/admin/programs/{{admin_program_id}}"
+          }
         },
         {
           "name": "Reviews — list",
-          "request": { "method": "GET", "url": "{{base_url}}/admin/reviews?page=1&size=20" }
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/admin/reviews?page=1&size=20"
+          }
         },
         {
           "name": "Reviews — delete (moderate)",
-          "request": { "method": "DELETE", "url": "{{base_url}}/admin/reviews/{{review_id}}" }
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/admin/reviews/{{review_id}}"
+          }
         },
         {
           "name": "Enrollments — list",
-          "request": { "method": "GET", "url": "{{base_url}}/admin/enrollments?page=1&size=20" }
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/admin/enrollments?page=1&size=20"
+          }
         },
         {
           "name": "Enrollments — delete",
-          "request": { "method": "DELETE", "url": "{{base_url}}/admin/enrollments/{{enrollment_id}}" }
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/admin/enrollments/{{enrollment_id}}"
+          }
         },
         {
           "name": "Certificates — list",
-          "request": { "method": "GET", "url": "{{base_url}}/admin/certificates?page=1&size=20" }
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/admin/certificates?page=1&size=20"
+          }
         },
         {
           "name": "Certificates — revoke",
-          "request": { "method": "DELETE", "url": "{{base_url}}/admin/certificates/{{certificate_id}}" }
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/admin/certificates/{{certificate_id}}"
+          }
         }
       ]
     }

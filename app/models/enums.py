@@ -54,3 +54,9 @@ class NotificationType(str, enum.Enum):
     REVIEW = "review"
     ANNOUNCEMENT = "announcement"
     REMINDER = "reminder"
+
+
+class HlsStatus(str, enum.Enum):
+    PENDING = "pending"
+    READY = "ready"
+    FAILED = "failed"

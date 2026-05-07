@@ -11,9 +11,10 @@ from __future__ import annotations
 import uuid
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, UploadFile, status
 
 from app.api.deps import CurrentUser
+from app.core.config import settings
 from app.core.exceptions import ForbiddenError
 from app.core.pagination import Page, PageParams, page_params, to_page
 from app.db.deps import DbSession
@@ -47,6 +48,7 @@ from app.schemas.instructor_admin import (
     UploadResponse,
 )
 from app.services import assessment_service, instructor_service
+from app.utils.hls import package_lesson_hls
 from app.utils.storage import media_url, save_upload
 
 router = APIRouter(prefix="/instructor", tags=["instructor"])
@@ -397,6 +399,7 @@ async def upload_lesson_video(
     lesson_id: uuid.UUID,
     user: CurrentUser,
     session: DbSession,
+    background: BackgroundTasks,
     file: Annotated[UploadFile, File(...)],
     duration_seconds: Annotated[int | None, Form(ge=0)] = None,
 ) -> LessonAdminRead:
@@ -411,6 +414,9 @@ async def upload_lesson_video(
     lesson = await instructor_service.set_lesson_video(
         session, inst, lesson_id, url=key, duration_seconds=duration_seconds
     )
+    if settings.HLS_AUTO_PACKAGE:
+        # Schedule HLS+AES-128 packaging — runs after the response is sent.
+        background.add_task(package_lesson_hls, lesson_id)
     return LessonAdminRead.model_validate(lesson)
 
 

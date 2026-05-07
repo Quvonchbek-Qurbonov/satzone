@@ -9,7 +9,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, ENUM as PgEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPKMixin
-from app.models.enums import CourseLevel, LessonType, PublishStatus
+from app.models.enums import CourseLevel, HlsStatus, LessonType, PublishStatus
 
 if TYPE_CHECKING:
     from app.models.catalog import Category, Instructor
@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 course_level_enum = PgEnum(CourseLevel, name="course_level", create_type=False, values_callable=lambda x: [e.value for e in x])
 publish_status_enum = PgEnum(PublishStatus, name="publish_status", create_type=False, values_callable=lambda x: [e.value for e in x])
 lesson_type_enum = PgEnum(LessonType, name="lesson_type", create_type=False, values_callable=lambda x: [e.value for e in x])
+hls_status_enum = PgEnum(HlsStatus, name="hls_status", create_type=False, values_callable=lambda x: [e.value for e in x])
 
 
 class Course(UUIDPKMixin, TimestampMixin, Base):
@@ -134,5 +135,11 @@ class Lesson(UUIDPKMixin, TimestampMixin, Base):
         lesson_type_enum, nullable=False, default=LessonType.VIDEO
     )
     is_free_preview: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    # HLS packaging state — populated asynchronously after a video upload.
+    # ``hls_master_key`` is the storage key of the master ``.m3u8`` manifest;
+    # ``hls_status`` reflects packaging progress.
+    hls_master_key: Mapped[str | None] = mapped_column(String(500))
+    hls_status: Mapped[HlsStatus | None] = mapped_column(hls_status_enum)
 
     section: Mapped[CourseSection] = relationship(back_populates="lessons")

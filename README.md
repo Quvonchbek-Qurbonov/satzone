@@ -11,6 +11,7 @@ Homepage, Explore, Detail Course, My Learnings, Degree, Account & Settings).
 - Structured logging (structlog), per-request IDs, sliding-window rate limit
 - Pluggable email backend (console for dev, SMTP/Brevo for prod)
 - Pluggable media storage (local disk for dev, AWS S3 with presigned URLs for prod)
+- Protected video streaming: auth-gated byte-range proxy + HLS/AES-128 packaging + DRM seam
 
 ## Layout
 
@@ -77,6 +78,29 @@ uvicorn app.main:app --reload
 | Degree (Programs)  | `GET /programs`, `GET /programs/{slug}`, `POST /programs/{id}/enroll`, `GET /me/programs`       |
 | Account & Settings | `GET/PATCH/DELETE /me`, `PUT /me/password`, `GET/PATCH /me/preferences/notifications`, `GET/DELETE /me/sessions` |
 | Admin              | `/admin/users`, `/admin/categories`, `/admin/instructors`, `/admin/courses`, `/admin/programs` (+ `/programs/{id}/courses` linking), `/admin/reviews`, `/admin/enrollments`, `/admin/certificates` — full CRUD + lifecycle (`publish`/`unpublish`/`archive`) + media uploads. All routes gated by `role=admin`. |
+
+## Video streaming protection
+
+Lesson videos are **HLS-only with AES-128 segment encryption**. There is no
+direct-MP4 endpoint for lessons because plain MP4 over HTTP is trivially
+downloadable. A `curl` of any signed URL gives you encrypted bytes that
+require both the per-lesson content key (auth-gated) and a valid
+IP-bound playback token to decrypt.
+
+1. **HLS + AES-128.** Every uploaded lesson video is repackaged with ffmpeg into encrypted HLS in the background (`HLS_AUTO_PACKAGE=true`). The manifest endpoint rewrites segment + key URIs on each request to signed paths under our domain; the 16-byte content key is wrapped at rest with a Fernet key (`MEDIA_KEK`) and only handed out by `GET /lessons/{id}/hls/key?t=…` to a holder of a valid playback token. Generate the KEK once with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`.
+2. **IP-bound playback tokens.** `GET /lessons/{id}/playback` (Bearer auth) mints a JWT that bakes the requester's IP (`cip` claim) and expires after `STREAM_TOKEN_TTL_SECONDS` (default 1800 — long enough for full playback, short enough to limit damage). Every manifest, segment, and key request re-verifies both the IP and the bound resource. A token shared with another network returns 401.
+3. **DRM (Widevine / FairPlay / PlayReady).** A `POST /lessons/{id}/drm/license` proxy is wired to forward binary EME challenges to the provider configured by `DRM_PROVIDER`. A real provider (ezDRM, Bitmovin, AWS MediaPackage…) requires a paid license server — leave `DRM_PROVIDER=none` until you have one.
+
+The layers are honest about their limits: no protection prevents a determined user from screen-recording playback. The goal is to make casual download impossible and scripted download annoying enough that only DRM-tier protection matters beyond it.
+
+| Endpoint | Purpose |
+| -------- | ------- |
+| `GET /lessons/{id}/playback` | Mint IP-bound `hls_url` (Bearer auth, enrollment / preview / owner check) |
+| `GET /lessons/{id}/hls/master.m3u8?t=…` | HLS manifest with rewritten signed URIs |
+| `GET /lessons/{id}/hls/seg/{name}?t=…` | Encrypted segment (server first, S3 fallback) |
+| `GET /lessons/{id}/hls/key?t=…` | Plaintext AES-128 content key (after Fernet unwrap) |
+| `POST /lessons/{id}/drm/license` | DRM license proxy (configure `DRM_PROVIDER`) |
+| `GET /courses/{slug}/preview-playback` + `/courses/{id}/preview-stream?t=…` | Course preview video — direct MP4 (marketing content, intentionally watchable) |
 
 ## Auth model
 

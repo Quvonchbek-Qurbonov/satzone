@@ -4,7 +4,7 @@ Three files for Postman:
 
 | File | Purpose |
 | ---- | ------- |
-| `edure.postman_collection.json` | Postman Collection v2.1 — 89 requests across 11 folders, with auto-token-capture scripts |
+| `edure.postman_collection.json` | Postman Collection v2.1 — 130 requests across 14 folders, with auto-token-capture scripts. The Video Streaming folder is HLS-only for lessons (direct-MP4 endpoint removed). |
 | `edure.postman_environment.json` | Environment with `base_url`, `access_token`, `refresh_token`, and other useful slugs/IDs |
 | `openapi.json` | Raw OpenAPI 3 spec exported from the live API (for tools that prefer OpenAPI) |
 
@@ -26,6 +26,8 @@ These requests have test scripts that populate environment variables for downstr
 | Request | Sets |
 | ------- | ---- |
 | Auth → Login / Refresh | `access_token`, `refresh_token` |
+| Video Streaming → Lesson playback | `playback_token`, `lesson_hls_url` |
+| Video Streaming → Course preview playback | `preview_token`, `preview_stream_url` |
 | Explore → List categories | `category_id` (first item) |
 | Explore → List courses | `course_id`, `course_slug` (first item) |
 | Explore → Course curriculum | `lesson_id` (first lesson of first section) |
@@ -37,6 +39,9 @@ These requests have test scripts that populate environment variables for downstr
 | Instructor → Create lesson | `instructor_lesson_id` |
 | Assessments → Create assessment | `assessment_id` |
 | Assessments → Add question (single_choice) | `question_id`, `option_id` (first correct option) |
+| Admin → Categories → Create | `admin_category_id` |
+| Admin → Instructors → Create | `admin_instructor_id` |
+| Admin → Programs → Create | `admin_program_id` |
 
 A clean run order to exercise everything end-to-end:
 
@@ -51,6 +56,38 @@ A clean run order to exercise everything end-to-end:
 9. **Degree → List programs** (sets `program_id`)
 10. **Degree → Enroll in program**
 11. **Account & Settings → …**
+
+### Video streaming flow
+
+Lesson playback is HLS-only — there is no direct-MP4 endpoint, because plain MP4 over HTTP is downloadable. Tokens are bound to the requester's IP (`cip` claim); replay from a different network returns 401.
+
+1. **Auth → Login** as a user enrolled in the course (or use a `is_free_preview=true` lesson; admins / course owners can also bypass).
+2. **Explore → Course curriculum** to capture `lesson_id`.
+3. **Video Streaming → Lesson playback** — captures `playback_token`, `lesson_hls_url`. Returns `hls_url=null` while `hls_status` is still `pending` (background packaging) — poll until `ready`.
+4. **Video Streaming → Lesson HLS — master playlist** returns the manifest with rewritten signed URIs for both the AES-128 key and every segment — pass it straight to hls.js / Safari.
+5. **Video Streaming → Lesson HLS — content key** returns the 16-byte content key. The player fetches this automatically when following the manifest.
+6. **Video Streaming → Lesson HLS — first segment** is encrypted bytes; only useful in combination with the key.
+7. **Video Streaming → Course preview playback** still serves direct MP4 — preview videos are marketing content meant to be watchable by non-enrolled users.
+8. **Video Streaming → DRM license proxy** returns `drm_not_configured` until you set `DRM_PROVIDER` in `.env` to a real provider.
+
+### Admin flow
+
+The **Admin** folder contains 36 requests covering: Users, Categories, Instructors, Courses, Programs (incl. program↔course linking), Reviews, Enrollments, Certificates. All require `role=admin` (caller token must belong to an admin user). Bootstrap your first admin in the DB:
+
+```bash
+docker compose exec db psql -U satzone -d satzone -c "UPDATE users SET role='admin', is_verified=true WHERE email='you@example.com';"
+```
+
+After that, log in as the admin (Auth → Login) and every Admin request inherits the bearer token.
+
+A typical content-management run:
+
+1. **Auth → Login** as admin.
+2. **Admin → Categories → Create** → captures `admin_category_id`.
+3. **Admin → Instructors → Create** → captures `admin_instructor_id`.
+4. **Admin → Programs → Create** → captures `admin_program_id`.
+5. **Admin → Programs → Add course** (uses `instructor_course_id` from a published course).
+6. **Admin → Programs → Publish**.
 
 ### Instructor / Assessments flow
 

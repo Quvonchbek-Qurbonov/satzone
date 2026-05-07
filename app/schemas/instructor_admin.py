@@ -12,7 +12,8 @@ from datetime import datetime
 
 from pydantic import Field, model_validator
 
-from app.models.enums import CourseLevel, LessonType, PublishStatus
+from app.core.config import settings
+from app.models.enums import CourseLevel, HlsStatus, LessonType, PublishStatus
 from app.schemas.base import ORMModel
 
 
@@ -110,7 +111,8 @@ class InstructorCourseRead(ORMModel):
     subtitle: str | None = None
     description: str | None = None
     thumbnail_url: str | None = None
-    preview_video_url: str | None = None
+    has_preview_video: bool = False
+    preview_playback_url: str | None = None
     category_id: uuid.UUID
     instructor_id: uuid.UUID
     level: CourseLevel
@@ -131,6 +133,48 @@ class InstructorCourseRead(ORMModel):
     ratings_count: int = 0
     created_at: datetime
     updated_at: datetime
+
+    @model_validator(mode="before")
+    @classmethod
+    def _derive_instructor_course_playback(cls, data):
+        if isinstance(data, dict):
+            return data
+        has_preview = bool(getattr(data, "preview_video_url", None))
+        slug = getattr(data, "slug", None)
+        return {
+            "id": data.id,
+            "slug": data.slug,
+            "title": data.title,
+            "subtitle": data.subtitle,
+            "description": data.description,
+            "thumbnail_url": data.thumbnail_url,
+            "has_preview_video": has_preview,
+            "preview_playback_url": (
+                f"{settings.API_V1_PREFIX}/courses/{slug}/preview-playback"
+                if has_preview and slug
+                else None
+            ),
+            "category_id": data.category_id,
+            "instructor_id": data.instructor_id,
+            "level": data.level,
+            "language": data.language,
+            "duration_minutes": data.duration_minutes,
+            "lectures_count": data.lectures_count,
+            "price_cents": data.price_cents,
+            "discount_price_cents": data.discount_price_cents,
+            "currency": data.currency,
+            "learning_outcomes": data.learning_outcomes,
+            "requirements": data.requirements,
+            "target_audience": data.target_audience,
+            "tags": data.tags,
+            "status": data.status,
+            "published_at": data.published_at,
+            "enrollments_count": data.enrollments_count,
+            "rating_avg": data.rating_avg,
+            "ratings_count": data.ratings_count,
+            "created_at": data.created_at,
+            "updated_at": data.updated_at,
+        }
 
 
 # ---- Sections ----
@@ -196,11 +240,40 @@ class LessonAdminRead(ORMModel):
     description: str | None = None
     type: LessonType
     article_content: str | None = None
-    video_url: str | None = None
+    has_video: bool = False
+    playback_url: str | None = None
+    hls_status: HlsStatus | None = None
     resource_url: str | None = None
     duration_seconds: int = 0
     order: int = 0
     is_free_preview: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def _derive_admin_lesson_playback(cls, data):
+        if isinstance(data, dict):
+            return data
+        has_video = bool(getattr(data, "video_url", None))
+        lesson_id = getattr(data, "id", None)
+        return {
+            "id": data.id,
+            "section_id": data.section_id,
+            "title": data.title,
+            "description": data.description,
+            "type": data.type,
+            "article_content": data.article_content,
+            "has_video": has_video,
+            "playback_url": (
+                f"{settings.API_V1_PREFIX}/lessons/{lesson_id}/playback"
+                if has_video and lesson_id
+                else None
+            ),
+            "hls_status": getattr(data, "hls_status", None),
+            "resource_url": data.resource_url,
+            "duration_seconds": data.duration_seconds,
+            "order": data.order,
+            "is_free_preview": data.is_free_preview,
+        }
 
 
 # ---- Upload responses ----

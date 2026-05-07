@@ -78,6 +78,32 @@ class Settings(BaseSettings):
     # leaked URL stops working quickly, long enough that page reloads don't churn.
     AWS_S3_URL_TTL_SECONDS: int = 3600
 
+    # Video streaming protection
+    # When STORAGE_BACKEND=s3, mirror uploads to MEDIA_ROOT so the streaming proxy
+    # can serve from the local box first and fall back to S3.
+    STORAGE_DUAL_WRITE: bool = True
+    # TTL of the signed token embedded in manifest/segment/key URLs. The
+    # token must outlast a full playback session because the manifest bakes
+    # it into every segment URI; IP binding (``cip`` claim) compensates for
+    # the longer window by making the token non-transferable.
+    STREAM_TOKEN_TTL_SECONDS: int = 1800
+    # Key-encryption key used to wrap per-lesson AES-128 HLS keys at rest.
+    # Generate once: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    MEDIA_KEK: str | None = None
+    # ffmpeg binary path (override if not on PATH).
+    FFMPEG_BIN: str = "ffmpeg"
+    # HLS segment length in seconds.
+    HLS_SEGMENT_SECONDS: int = 6
+    # Auto-package on lesson video upload. Disable to package out-of-band.
+    HLS_AUTO_PACKAGE: bool = True
+
+    # DRM (Widevine/FairPlay/PlayReady) — provider integration point.
+    # "none" disables DRM. Other values require a paid license server (ezDRM,
+    # Bitmovin, AWS MediaPackage, etc.); plug credentials into app/utils/drm.py.
+    DRM_PROVIDER: Literal["none", "ezdrm", "widevine_proxy"] = "none"
+    DRM_LICENSE_URL: str | None = None
+    DRM_API_KEY: str | None = None
+
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
     def _parse_cors(cls, v: object) -> list[str]:
