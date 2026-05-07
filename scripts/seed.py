@@ -241,18 +241,25 @@ async def seed() -> None:
                 )
 
         # Demo user
-        admin_email = "demo@edure.local"
+        admin_email = "q.qurbonov@newuu.uz"
         existing_user = (
             await session.execute(select(User).where(User.email == admin_email))
         ).scalar_one_or_none()
         if existing_user is None:
+            now = datetime.now(tz=UTC)
             user = User(
                 email=admin_email,
                 password_hash=hash_password("DemoPass123!"),
                 full_name="Demo User",
                 role=UserRole.USER,
+                # Phone gate is enforced on every authed endpoint — a seeded
+                # demo user that can't actually use the API is no use, so we
+                # mark them phone-verified with a placeholder number.
+                phone_number="+10000000001",
                 is_verified=True,
-                email_verified_at=datetime.now(tz=UTC),
+                is_phone_verified=True,
+                email_verified_at=now,
+                phone_verified_at=now,
             )
             session.add(user)
             await session.flush()

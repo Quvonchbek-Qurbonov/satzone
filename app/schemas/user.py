@@ -19,11 +19,14 @@ class UserMe(ORMModel):
     id: uuid.UUID
     email: EmailStr
     full_name: str
+    phone_number: str | None = None
     avatar_url: str | None = None
     role: UserRole
     is_active: bool
     is_verified: bool
+    is_phone_verified: bool
     email_verified_at: datetime | None = None
+    phone_verified_at: datetime | None = None
     onboarding_completed_at: datetime | None = None
     last_login_at: datetime | None = None
     created_at: datetime

@@ -3,12 +3,13 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from app.api.deps import CurrentUser
+from app.api.deps import CurrentUserAny
 from app.core.config import settings
 from app.core.exceptions import AppError
 from app.core.security import create_oauth_state, verify_oauth_state
 from app.db.deps import DbSession
 from app.middleware.rate_limit import rate_limit_auth
+from app.redis_client import RedisDep
 from app.services import google_oauth_service
 from app.schemas.auth import (
     EmailVerifyRequest,
@@ -16,6 +17,8 @@ from app.schemas.auth import (
     LogoutRequest,
     PasswordResetConfirm,
     PasswordResetRequest,
+    PhoneSubmitRequest,
+    PhoneVerifyRequest,
     RefreshRequest,
     RegisterRequest,
     ResendVerifyRequest,
@@ -103,6 +106,50 @@ async def resend_verification(payload: ResendVerifyRequest, session: DbSession) 
     return Message(message="If the account exists and is unverified, a new verification email was sent")
 
 
+@router.post("/phone", response_model=Message)
+async def submit_phone(
+    payload: PhoneSubmitRequest,
+    user: CurrentUserAny,
+    session: DbSession,
+    redis: RedisDep,
+) -> Message:
+    """Stash a phone number + freshly-minted code in Redis and email it.
+
+    Re-callable until the phone is verified, so the user can correct a typo.
+    Once ``is_phone_verified`` is true the endpoint refuses with
+    ``phone_already_verified``. The phone is **not** persisted to ``users``
+    until ``/auth/verify-phone`` succeeds.
+    """
+    await auth_service.set_phone_number(
+        session=session,
+        redis=redis,
+        user=user,
+        phone_number=payload.phone_number,
+    )
+    return Message(message="Verification code sent")
+
+
+@router.post("/verify-phone", response_model=Message)
+async def verify_phone(
+    payload: PhoneVerifyRequest,
+    user: CurrentUserAny,
+    session: DbSession,
+    redis: RedisDep,
+) -> Message:
+    await auth_service.verify_phone(
+        session=session, redis=redis, user=user, code=payload.code
+    )
+    return Message(message="Phone number verified")
+
+
+@router.post("/resend-phone-code", response_model=Message)
+async def resend_phone_code(
+    user: CurrentUserAny, session: DbSession, redis: RedisDep
+) -> Message:
+    await auth_service.resend_phone_code(session=session, redis=redis, user=user)
+    return Message(message="Verification code sent")
+
+
 @router.post("/password/forgot", response_model=Message)
 async def forgot_password(payload: PasswordResetRequest, session: DbSession) -> Message:
     await auth_service.request_password_reset(session=session, email=payload.email)
@@ -118,7 +165,10 @@ async def reset_password(payload: PasswordResetConfirm, session: DbSession) -> M
 
 
 @router.get("/me", response_model=UserMe)
-async def me(user: CurrentUser) -> UserMe:
+async def me(user: CurrentUserAny) -> UserMe:
+    """Current user — accessible even before phone is verified so the
+    frontend can read ``is_phone_verified`` and route into the verify-phone
+    screen."""
     return UserMe.model_validate(user)
 
 

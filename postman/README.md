@@ -4,7 +4,7 @@ Three files for Postman:
 
 | File | Purpose |
 | ---- | ------- |
-| `edure.postman_collection.json` | Postman Collection v2.1 — 130 requests across 14 folders, with auto-token-capture scripts. The Video Streaming folder is HLS-only for lessons (direct-MP4 endpoint removed). |
+| `edure.postman_collection.json` | Postman Collection v2.1 — 132 requests across 14 folders, with auto-token-capture scripts. The Video Streaming folder is HLS-only for lessons (direct-MP4 endpoint removed). |
 | `edure.postman_environment.json` | Environment with `base_url`, `access_token`, `refresh_token`, and other useful slugs/IDs |
 | `openapi.json` | Raw OpenAPI 3 spec exported from the live API (for tools that prefer OpenAPI) |
 

@@ -69,7 +69,7 @@ uvicorn app.main:app --reload
 
 | Section            | Endpoints                                                                                      |
 | ------------------ | ---------------------------------------------------------------------------------------------- |
-| Auth               | `POST /auth/register`, `/login`, `/refresh`, `/logout`, `/verify-email`, `/resend-verification`, `/password/forgot`, `/password/reset`, `GET /auth/me` |
+| Auth               | `POST /auth/register`, `/login`, `/refresh`, `/logout`, `/verify-email`, `/resend-verification`, `/phone`, `/verify-phone`, `/resend-phone-code`, `/password/forgot`, `/password/reset`, `GET /auth/me` |
 | Onboarding         | `GET/PUT /onboarding`                                                                          |
 | Home               | `GET /home` (personalized when token provided)                                                 |
 | Explore            | `GET /courses` (filters: search, category_id/slug, instructor_id, level, is_free, min_rating, duration, tags, sort), `GET /categories`, `GET /categories/tree`, `GET /instructors`, `GET /instructors/{slug}` |

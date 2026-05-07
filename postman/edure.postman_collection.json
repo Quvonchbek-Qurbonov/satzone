@@ -218,6 +218,47 @@
           }
         },
         {
+          "name": "Submit phone (auth)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone_number\": \"{{user_phone}}\"\n}"
+            },
+            "url": "{{base_url}}/auth/phone"
+          }
+        },
+        {
+          "name": "Verify phone (auth)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{phone_code}}\"\n}"
+            },
+            "url": "{{base_url}}/auth/verify-phone"
+          }
+        },
+        {
+          "name": "Resend phone code (auth)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/resend-phone-code"
+          }
+        },
+        {
           "name": "Password — forgot",
           "request": {
             "auth": {

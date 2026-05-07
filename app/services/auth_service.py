@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 
 from fastapi import Request
+from redis.asyncio import Redis
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,7 +20,11 @@ from app.core.security import (
     needs_rehash,
     verify_password,
 )
-from app.models.auth import PasswordResetToken, PendingRegistration, RefreshToken
+from app.models.auth import (
+    PasswordResetToken,
+    PendingRegistration,
+    RefreshToken,
+)
 from app.models.user import NotificationPreference, User
 from app.utils.email import send_email
 
@@ -264,6 +270,162 @@ async def verify_email(session: AsyncSession, raw_token: str) -> User:
     await session.delete(pending)
     await session.commit()
     return user
+
+
+def _generate_phone_code() -> str:
+    length = max(4, min(10, settings.PHONE_CODE_LENGTH))
+    upper = 10**length
+    return f"{secrets.randbelow(upper):0{length}d}"
+
+
+def _phone_verify_key(user_id: uuid.UUID) -> str:
+    return f"phone_verify:{user_id}"
+
+
+async def set_phone_number(
+    session: AsyncSession,
+    redis: Redis,
+    user: User,
+    phone_number: str,
+) -> None:
+    """Stash an unverified phone + freshly-minted code in Redis and email it.
+
+    Nothing is written to ``users`` until :func:`verify_phone` succeeds — so
+    if the user mistypes, walks away, or never finishes, no half-state
+    persists past the Redis TTL.
+    """
+    if user.is_phone_verified:
+        raise ConflictError(
+            "Phone number is already verified — cannot be changed here",
+            code="phone_already_verified",
+        )
+    phone_clean = phone_number.strip()
+    taken = (
+        await session.execute(
+            select(User.id).where(
+                User.phone_number == phone_clean, User.id != user.id
+            )
+        )
+    ).scalar_one_or_none()
+    if taken is not None:
+        raise ConflictError(
+            "An account with this phone number already exists",
+            code="phone_taken",
+        )
+    await _issue_phone_code(redis, user, phone_clean)
+
+
+async def _issue_phone_code(redis: Redis, user: User, phone_number: str) -> str:
+    """Mint a code, write {phone, code_hash, attempts=0} into Redis, email it.
+
+    Returns the raw code (only useful in tests). Resets the attempt counter
+    on every issuance, so resends start fresh.
+    """
+    code = _generate_phone_code()
+    code_hash = hash_opaque_token(code)
+    key = _phone_verify_key(user.id)
+    ttl_seconds = settings.PHONE_VERIFY_EXPIRE_MINUTES * 60
+
+    pipe = redis.pipeline()
+    pipe.delete(key)  # wipe stale fields so old codes/attempts don't bleed in
+    pipe.hset(
+        key,
+        mapping={
+            "phone_number": phone_number,
+            "code_hash": code_hash,
+            "attempts": 0,
+        },
+    )
+    pipe.expire(key, ttl_seconds)
+    await pipe.execute()
+
+    # Until SMS is wired in, deliver the code via email — explicit about the
+    # stand-in so the user isn't confused by getting an email instead of a
+    # text. Swap this branch for an SMS provider call when ready.
+    try:
+        await send_email(
+            to=user.email,
+            subject=f"Your {settings.PROJECT_NAME} phone verification code",
+            body_text=(
+                f"Hi {user.full_name},\n\n"
+                f"Your phone verification code is: {code}\n\n"
+                f"It expires in {settings.PHONE_VERIFY_EXPIRE_MINUTES} minutes.\n"
+                "(SMS delivery is not yet enabled — codes are temporarily emailed instead.)"
+            ),
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("phone_code_email_send_failed", user_id=str(user.id))
+    return code
+
+
+async def verify_phone(
+    session: AsyncSession, redis: Redis, user: User, code: str
+) -> User:
+    if user.is_phone_verified:
+        raise ConflictError("Phone is already verified", code="phone_already_verified")
+
+    key = _phone_verify_key(user.id)
+    data = await redis.hgetall(key)
+    if not data:
+        # Either no submission yet, or the TTL has lapsed — same UX either way:
+        # the frontend should bounce them back to the phone-input step.
+        raise ValidationAppError(
+            "Invalid or expired verification code", code="invalid_phone_code"
+        )
+
+    attempts = int(data.get("attempts", 0))
+    if attempts >= settings.PHONE_VERIFY_MAX_ATTEMPTS:
+        raise ValidationAppError(
+            "Too many incorrect attempts — request a new code",
+            code="phone_code_attempts_exceeded",
+        )
+
+    if not secrets.compare_digest(data["code_hash"], hash_opaque_token(code)):
+        await redis.hincrby(key, "attempts", 1)
+        raise ValidationAppError(
+            "Invalid or expired verification code", code="invalid_phone_code"
+        )
+
+    phone = data["phone_number"]
+
+    # Re-check uniqueness before commit — another user could have verified the
+    # same number while this code was outstanding. The unique index is the
+    # ultimate safety net; this just turns the race into a clean 409.
+    taken = (
+        await session.execute(
+            select(User.id).where(User.phone_number == phone, User.id != user.id)
+        )
+    ).scalar_one_or_none()
+    if taken is not None:
+        await redis.delete(key)
+        raise ConflictError(
+            "An account with this phone number already exists",
+            code="phone_taken",
+        )
+
+    now = _now()
+    user.phone_number = phone
+    user.is_phone_verified = True
+    user.phone_verified_at = now
+    await session.commit()
+    await redis.delete(key)
+    return user
+
+
+async def resend_phone_code(
+    session: AsyncSession, redis: Redis, user: User
+) -> None:
+    """Re-issue the current user's phone-verification code using the phone
+    they previously submitted (still in Redis)."""
+    if user.is_phone_verified:
+        raise ConflictError("Phone is already verified", code="phone_already_verified")
+    phone = await redis.hget(_phone_verify_key(user.id), "phone_number")
+    if not phone:
+        raise ValidationAppError(
+            "No phone number on file — submit one via POST /auth/phone first",
+            code="phone_not_submitted",
+        )
+    await _issue_phone_code(redis, user, phone)
 
 
 async def request_password_reset(session: AsyncSession, email: str) -> None:

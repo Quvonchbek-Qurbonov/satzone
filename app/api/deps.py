@@ -3,9 +3,8 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ForbiddenError, UnauthorizedError
 from app.core.security import decode_access_token
@@ -16,9 +15,9 @@ from app.models.user import User
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
-async def get_current_user(
+async def _resolve_user(
     session: DbSession,
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+    credentials: HTTPAuthorizationCredentials | None,
 ) -> User:
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise UnauthorizedError("Authentication required", code="missing_token")
@@ -31,6 +30,41 @@ async def get_current_user(
     user = await session.get(User, user_id)
     if user is None or not user.is_active:
         raise UnauthorizedError("User not found or disabled", code="invalid_user")
+    return user
+
+
+async def get_current_user_any(
+    session: DbSession,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+) -> User:
+    """Authenticated user — does NOT require phone verification.
+
+    Use this on endpoints that must work during the phone-verification flow
+    itself (``GET /auth/me``, ``POST /auth/phone``, ``POST /auth/verify-phone``,
+    ``POST /auth/resend-phone-code``). Every other authenticated endpoint
+    should depend on :data:`CurrentUser` so the phone gate is enforced.
+    """
+    return await _resolve_user(session, credentials)
+
+
+CurrentUserAny = Annotated[User, Depends(get_current_user_any)]
+
+
+async def get_current_user(
+    session: DbSession,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+) -> User:
+    """Authenticated user with phone verified.
+
+    All app endpoints depend on this. Returns 403 ``phone_not_verified`` for
+    users who haven't completed the post-login phone-verification step — the
+    frontend should redirect them to the verify-phone screen.
+    """
+    user = await _resolve_user(session, credentials)
+    if not user.is_phone_verified:
+        raise ForbiddenError(
+            "Phone verification required", code="phone_not_verified"
+        )
     return user
 
 

@@ -15,7 +15,6 @@ import io
 import os
 import secrets
 import sys
-import uuid
 
 import httpx
 
@@ -39,27 +38,45 @@ def _ok(label: str, resp: httpx.Response, *, expect: int = 200) -> dict | list |
     return body if isinstance(body, (dict, list)) else None
 
 
-def _promote_to_instructor(email: str) -> None:
-    """Flip a freshly-registered user to instructor via direct SQL.
-
-    The auth API only mints USER-role accounts, so for this test we promote
-    out of band — equivalent to an admin action.
-    """
+def _run_sql(label: str, sql: str) -> None:
     import subprocess
 
-    sql = (
-        "UPDATE users SET role='instructor', is_verified=true, "
-        f"email_verified_at=now() WHERE email='{email}';"
-    )
     res = subprocess.run(
         ["docker", "exec", "satzone-db-1", "psql", "-U", "satzone", "-d", "satzone", "-c", sql],
         capture_output=True,
         text=True,
     )
     if res.returncode != 0:
-        print("FAIL  promote_user  ", res.stderr)
+        print(f"FAIL  {label}  ", res.stderr)
         sys.exit(1)
-    print(f"PASS  promote_user  -> instructor  ({email})")
+    print(f"PASS  {label}")
+
+
+def _promote_to_instructor(email: str) -> None:
+    """Flip a freshly-registered user to instructor via direct SQL.
+
+    The auth API only mints USER-role accounts, so for this test we promote
+    out of band — equivalent to an admin action.
+    """
+    _run_sql(
+        f"promote_user -> instructor ({email})",
+        (
+            "UPDATE users SET role='instructor', is_verified=true, "
+            f"email_verified_at=now() WHERE email='{email}';"
+        ),
+    )
+
+
+def _force_phone_verified(email: str) -> None:
+    """Mark a test user phone-verified out of band so the smoke test doesn't
+    have to scrape the verification code from the API logs."""
+    _run_sql(
+        f"force_phone_verified ({email})",
+        (
+            "UPDATE users SET is_phone_verified=true, phone_verified_at=now() "
+            f"WHERE email='{email}';"
+        ),
+    )
 
 
 def main() -> None:
@@ -76,6 +93,7 @@ def main() -> None:
         )
         _ok("register instructor user", r, expect=201)
         _promote_to_instructor(inst_email)
+        _force_phone_verified(inst_email)
 
         # Login instructor
         r = c.post("/auth/login", json={"email": inst_email, "password": password})
@@ -302,6 +320,7 @@ def main() -> None:
             json={"email": student_email, "full_name": "Stu Student", "password": password},
         )
         _ok("register student", r, expect=201)
+        _force_phone_verified(student_email)
         r = c.post("/auth/login", json={"email": student_email, "password": password})
         sh = {"Authorization": f"Bearer {(_ok('login student', r, expect=200) or {})['access_token']}"}
 

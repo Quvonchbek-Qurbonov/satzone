@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     PASSWORD_RESET_EXPIRE_MINUTES: int = 30
     EMAIL_VERIFY_EXPIRE_HOURS: int = 48
+    # Phone verification — code is currently delivered over email as a stand-in
+    # for SMS, so the expiry is shorter than the email-verify link.
+    PHONE_VERIFY_EXPIRE_MINUTES: int = 15
+    PHONE_VERIFY_MAX_ATTEMPTS: int = 5
+    PHONE_CODE_LENGTH: int = 6
 
     RATE_LIMIT_AUTH_PER_MINUTE: int = 10
     RATE_LIMIT_DEFAULT_PER_MINUTE: int = 120
