@@ -102,6 +102,23 @@ The layers are honest about their limits: no protection prevents a determined us
 | `POST /lessons/{id}/drm/license` | DRM license proxy (configure `DRM_PROVIDER`) |
 | `GET /courses/{slug}/preview-playback` + `/courses/{id}/preview-stream?t=…` | Course preview video — direct MP4 (marketing content, intentionally watchable) |
 
+## Observability
+
+`docker compose up -d` brings up four extra services for metrics, logs, and dashboards:
+
+| Service | URL | Notes |
+| ------- | --- | ----- |
+| Prometheus | <http://localhost:9090> | Scrapes `satzone-api:8000/metrics` every 15 s, 15 d retention |
+| Loki | <http://localhost:3100> | Receives logs shipped by Promtail, 7 d retention |
+| Promtail | (no UI) | Tails Docker JSON logs, parses structlog, ships to Loki |
+| Grafana | <http://localhost:3001> | `admin` / `admin` (override via `GRAFANA_USER`/`GRAFANA_PASSWORD`) |
+
+Grafana auto-provisions both data sources and a starter dashboard ("Satzone — Streaming Overview") covering request rate, p95/p99 latency, playback-token issuance/rejection, HLS local-vs-S3 cache hit ratio, packaging in-flight + duration, and a live tail of error/warning logs from Loki.
+
+The API exposes both default HTTP metrics (request count, duration histogram by handler) and streaming-specific counters defined in `app/core/metrics.py`. Add new dashboards by dropping JSON into `ops/grafana/dashboards/` — Grafana picks them up within 30 s without a restart.
+
+Logs ship as JSON because `LOG_JSON=true`; Promtail promotes `level`, `event`, `request_id`, `method`, `path`, `status_code` to Loki labels so you can filter in Grafana with `{service="api"} | json | level="error"`.
+
 ## Auth model
 
 - **Access token** (JWT, 15 min) — sent as `Authorization: Bearer <token>`.

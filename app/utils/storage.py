@@ -357,6 +357,11 @@ def open_range(key: str, start: int, end: int):
     if p.is_file():
         return _iter_local(p, start, end)
     if settings.STORAGE_BACKEND == "s3":
+        # Lazy import to avoid a metrics dep on the storage layer at module
+        # import time (storage is also used by scripts that don't run FastAPI).
+        from app.core.metrics import s3_stream_fallback_total
+
+        s3_stream_fallback_total.inc()
         return _iter_s3(key, start, end)
     raise FileNotFoundError(key)
 

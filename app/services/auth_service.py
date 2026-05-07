@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.exceptions import ConflictError, NotFoundError, UnauthorizedError, ValidationAppError
-from app.core.logging import get_logger
+from app.core.logging import email_hash, get_logger
 from app.core.security import (
     create_access_token,
     generate_opaque_token,
@@ -128,7 +128,7 @@ async def register(
             ),
         )
     except Exception:  # noqa: BLE001
-        logger.exception("verification_email_send_failed", email=email_norm)
+        logger.exception("verification_email_send_failed", email_hash=email_hash(email_norm))
 
 
 async def issue_tokens(
@@ -272,7 +272,7 @@ async def request_password_reset(session: AsyncSession, email: str) -> None:
     user = (await session.execute(stmt)).scalar_one_or_none()
     # Always return success to avoid email enumeration; only send mail if user exists.
     if user is None:
-        logger.info("password_reset_unknown_email", email=email_norm)
+        logger.info("password_reset_unknown_email", email_hash=email_hash(email_norm))
         return
 
     raw = generate_opaque_token()
@@ -361,4 +361,4 @@ async def resend_verification(session: AsyncSession, email: str) -> None:
             body_text=f"Hi {pending.full_name},\n\nVerify your email: {verify_url}",
         )
     except Exception:  # noqa: BLE001
-        logger.exception("resend_verify_failed", email=email_norm)
+        logger.exception("resend_verify_failed", email_hash=email_hash(email_norm))

@@ -14,6 +14,13 @@ logger = get_logger(__name__)
 
 REQUEST_ID_HEADER = "X-Request-ID"
 
+# High-frequency polling endpoints whose access lines would drown out the
+# rest of the log feed. Prometheus scrapes ``/metrics`` every 15 s; the docs
+# pages get hit by health checks and link previewers. We still measure them
+# (the Prometheus instrumentator does that), we just don't emit a structlog
+# line per call.
+_QUIET_PATHS = frozenset({"/metrics", "/health", "/docs", "/redoc", "/openapi.json"})
+
 
 class RequestContextMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
@@ -36,9 +43,10 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 
         duration_ms = (time.perf_counter() - started) * 1000
         response.headers[REQUEST_ID_HEADER] = request_id
-        logger.info(
-            "request_completed",
-            status_code=response.status_code,
-            duration_ms=round(duration_ms, 2),
-        )
+        if request.url.path not in _QUIET_PATHS:
+            logger.info(
+                "request_completed",
+                status_code=response.status_code,
+                duration_ms=round(duration_ms, 2),
+            )
         return response

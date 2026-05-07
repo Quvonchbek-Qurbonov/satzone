@@ -1,0 +1,184 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "API request rate (req/s)",
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "sum by (handler) (rate(http_requests_total{job=\"satzone-api\"}[1m]))",
+          "legendFormat": "{{handler}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "p95 / p99 request latency",
+      "datasource": { "type": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, handler) (rate(http_request_duration_seconds_bucket{job=\"satzone-api\"}[5m])))",
+          "legendFormat": "p95 {{handler}}",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le, handler) (rate(http_request_duration_seconds_bucket{job=\"satzone-api\"}[5m])))",
+          "legendFormat": "p99 {{handler}}",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Playback tokens issued",
+      "datasource": { "type": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "ops" } },
+      "targets": [
+        {
+          "expr": "sum by (scope) (rate(playback_tokens_issued_total[1m]))",
+          "legendFormat": "{{scope}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Token rejections (by reason)",
+      "datasource": { "type": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "ops" } },
+      "description": "Spikes here mean tokens are getting rejected at the streaming endpoints. ip_mismatch = link sharing across networks. expired = TTL too short for the video length.",
+      "targets": [
+        {
+          "expr": "sum by (reason) (rate(playback_token_rejections_total[5m]))",
+          "legendFormat": "{{reason}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "HLS segments served — local vs S3 fallback",
+      "datasource": { "type": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "ops" } },
+      "description": "The 'is the cache warm?' signal. When the s3 line climbs, segments are being pulled from S3 instead of local disk — usually after a fresh deploy or a wiped media/ volume.",
+      "targets": [
+        {
+          "expr": "sum by (source) (rate(hls_segment_requests_total[1m]))",
+          "legendFormat": "{{source}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "HLS packaging — in-flight + outcomes",
+      "datasource": { "type": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "description": "If 'in_flight' stays > 0 for long, ffmpeg can't keep up with uploads — push the worker out of the API process.",
+      "targets": [
+        {
+          "expr": "hls_packaging_in_flight",
+          "legendFormat": "in_flight",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (outcome) (increase(hls_packaging_total[5m]))",
+          "legendFormat": "{{outcome}} (5m)",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Log volume by level",
+      "datasource": { "type": "loki" },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 24 },
+      "fieldConfig": {
+        "defaults": { "unit": "lps", "custom": { "drawStyle": "bars", "stacking": { "mode": "normal" } } }
+      },
+      "description": "Stacked log lines per second by level. Spikes in 'error' or 'warning' are the early-warning signal — click into the panel below to see which lines.",
+      "targets": [
+        {
+          "datasource": { "type": "loki" },
+          "expr": "sum by (level) (rate({service=\"api\"} | json | path!~\"/metrics|/health|/docs|/redoc|/openapi.json\" [1m]))",
+          "legendFormat": "{{level}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "logs",
+      "title": "Live logs (filter via $level)",
+      "datasource": { "type": "loki" },
+      "gridPos": { "h": 16, "w": 24, "x": 0, "y": 30 },
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": true,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki" },
+          "expr": "{service=\"api\"} | json | level=~\"$level\" | path!~\"/metrics|/health|/docs|/redoc|/openapi.json\"",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["satzone", "streaming"],
+  "templating": {
+    "list": [
+      {
+        "name": "level",
+        "label": "Log level",
+        "type": "custom",
+        "datasource": null,
+        "query": "info,warning,error,debug,critical",
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] },
+        "options": [
+          { "selected": true, "text": "All", "value": "$__all" },
+          { "selected": false, "text": "info", "value": "info" },
+          { "selected": false, "text": "warning", "value": "warning" },
+          { "selected": false, "text": "error", "value": "error" },
+          { "selected": false, "text": "debug", "value": "debug" },
+          { "selected": false, "text": "critical", "value": "critical" }
+        ],
+        "includeAll": true,
+        "allValue": ".+",
+        "multi": true,
+        "skipUrlSync": false
+      }
+    ]
+  },
+  "time": { "from": "now-30m", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Satzone — Streaming Overview",
+  "uid": "satzone-streaming",
+  "version": 2,
+  "weekStart": ""
+}

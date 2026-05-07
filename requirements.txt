@@ -14,6 +14,7 @@ pyjwt>=2.10.0
 
 # Logging & observability
 structlog>=24.4.0
+prometheus-fastapi-instrumentator>=7.0.0
 
 # Utilities
 python-slugify>=8.0.4

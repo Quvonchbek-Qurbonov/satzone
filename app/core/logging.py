@@ -65,6 +65,31 @@ def configure_logging() -> None:
         logging.getLogger(noisy).handlers = [handler]
         logging.getLogger(noisy).propagate = False
 
+    # Suppress uvicorn's per-request access lines. They duplicate the
+    # ``request_completed`` line emitted by RequestContextMiddleware, which
+    # carries richer fields (request_id, duration_ms) and skips the noisy
+    # polling endpoints (``/metrics``, ``/health``, ``/docs`` …).
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+
 
 def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
     return structlog.get_logger(name) if name else structlog.get_logger()
+
+
+def email_hash(email: str | None) -> str | None:
+    """Return a stable, non-reversible identifier for ``email``.
+
+    Used in log lines instead of the raw address so an operator can answer
+    "did the same user retry 5 times?" without anyone with Loki/Grafana
+    access being able to enumerate user emails.
+
+    The output is deterministic across processes (no salt) — it's a
+    pseudonym, not a privacy-preserving cryptographic commitment. If you
+    later decide you need the latter, swap in HMAC with a server-side key.
+    """
+    if not email:
+        return None
+    import hashlib
+
+    digest = hashlib.sha256(email.strip().lower().encode("utf-8")).hexdigest()
+    return f"sha256:{digest[:12]}"

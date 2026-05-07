@@ -5,7 +5,7 @@ from email.message import EmailMessage
 from typing import Protocol
 
 from app.core.config import settings
-from app.core.logging import get_logger
+from app.core.logging import email_hash, get_logger
 
 logger = get_logger(__name__)
 
@@ -23,6 +23,12 @@ class EmailBackend(Protocol):
 
 
 class ConsoleEmailBackend:
+    """Dev-only backend — prints the full email (incl. address + body) to
+    the log so a developer can grab the verify/reset link without setting
+    up SMTP. **Never** ship MAIL_BACKEND=console to production: it leaks
+    PII and reset tokens to anyone with log access.
+    """
+
     async def send(self, email: Email) -> None:
         logger.info(
             "email_send_console",
@@ -88,18 +94,27 @@ class BrevoEmailBackend:
             resp = await client.post(self._ENDPOINT, json=payload, headers=headers)
 
         if resp.status_code >= 400:
+            # Brevo error responses can echo the recipient address back in
+            # the body — strip it down to just the upstream code/message
+            # before it lands in Loki. The full body stays out of logs.
+            err_summary = ""
+            try:
+                err_json = resp.json()
+                err_summary = f"{err_json.get('code', '')}: {err_json.get('message', '')}"
+            except ValueError:
+                err_summary = resp.text[:120]
             logger.error(
                 "email_send_brevo_failed",
-                to=email.to,
+                to_hash=email_hash(email.to),
                 subject=email.subject,
                 status=resp.status_code,
-                body=resp.text,
+                error=err_summary,
             )
             resp.raise_for_status()
 
         logger.info(
             "email_send_brevo",
-            to=email.to,
+            to_hash=email_hash(email.to),
             subject=email.subject,
             message_id=resp.json().get("messageId") if resp.content else None,
         )

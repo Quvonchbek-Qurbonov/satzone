@@ -98,26 +98,34 @@ def verify_playback_token(
     doesn't match the requested resource/scope, or was minted for a different
     client IP. Tokens are non-transferable across networks.
     """
+    # Lazy import — keeps streaming_service usable from scripts that don't
+    # boot the FastAPI app (and thus don't register the Prometheus collectors).
+    from app.core.metrics import playback_token_rejections_total
+
+    def _reject(reason: str, message: str) -> UnauthorizedError:
+        playback_token_rejections_total.labels(reason=reason).inc()
+        return UnauthorizedError(message, code=reason)
+
     if not token:
-        raise UnauthorizedError("Missing playback token", code="missing_playback_token")
+        raise _reject("missing_playback_token", "Missing playback token")
     try:
         payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
     except jwt.ExpiredSignatureError as exc:
-        raise UnauthorizedError("Playback token expired", code="playback_token_expired") from exc
+        raise _reject("playback_token_expired", "Playback token expired") from exc
     except jwt.InvalidTokenError as exc:
-        raise UnauthorizedError("Invalid playback token", code="invalid_playback_token") from exc
+        raise _reject("invalid_playback_token", "Invalid playback token") from exc
     if payload.get("type") != "playback":
-        raise UnauthorizedError("Wrong token type", code="invalid_playback_token")
+        raise _reject("invalid_playback_token", "Wrong token type")
     if payload.get("scope") != expected_scope:
-        raise UnauthorizedError("Token scope mismatch", code="playback_scope_mismatch")
+        raise _reject("playback_scope_mismatch", "Token scope mismatch")
     if payload.get("rid") != str(expected_resource_id):
-        raise UnauthorizedError("Token resource mismatch", code="playback_resource_mismatch")
+        raise _reject("playback_resource_mismatch", "Token resource mismatch")
     if payload.get("cip") != expected_client_ip:
-        raise UnauthorizedError("Token bound to a different IP", code="playback_ip_mismatch")
+        raise _reject("playback_ip_mismatch", "Token bound to a different IP")
     try:
         return uuid.UUID(payload["sub"])
     except (KeyError, ValueError) as exc:
-        raise UnauthorizedError("Invalid token subject", code="invalid_playback_token") from exc
+        raise _reject("invalid_playback_token", "Invalid token subject") from exc
 
 
 # ---------- Access checks ----------

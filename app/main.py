@@ -7,6 +7,7 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.api.v1.router import api_router
 from app.core.config import settings
@@ -15,6 +16,9 @@ from app.core.logging import configure_logging, get_logger
 from app.db.session import dispose_engine
 from app.middleware.request_id import RequestContextMiddleware
 from app.redis_client import close_redis, get_redis
+
+# Importing the module is enough — counters are registered as a side effect.
+import app.core.metrics  # noqa: F401
 
 logger = get_logger(__name__)
 
@@ -74,6 +78,14 @@ def create_app() -> FastAPI:
     media_root = Path(settings.MEDIA_ROOT)
     media_root.mkdir(parents=True, exist_ok=True)
     app.mount(settings.MEDIA_URL, StaticFiles(directory=media_root), name="media")
+
+    # Prometheus /metrics — labels routes by their template (so all lessons
+    # collapse onto a single ``/lessons/{lesson_id}/hls/seg/{seg_name}``
+    # series instead of one series per UUID, which would explode cardinality).
+    Instrumentator(
+        excluded_handlers=["/metrics", "/docs", "/redoc", "/openapi.json"],
+        should_group_status_codes=False,
+    ).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
     return app
 

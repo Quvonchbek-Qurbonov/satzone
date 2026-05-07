@@ -1,0 +1,45 @@
+# Single-binary Loki — fine for dev and small deployments. Don't use this
+# layout for multi-tenant production; swap in the real microservices mode.
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9095
+  log_level: warn
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  allow_structured_metadata: true
+  volume_enabled: true
+  retention_period: 168h  # 7 days
+
+ruler:
+  storage:
+    type: local
+    local:
+      directory: /loki/rules
+
+# v3.x defaults that older configs trip over.
+analytics:
+  reporting_enabled: false

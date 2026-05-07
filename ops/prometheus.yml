@@ -1,0 +1,18 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # The FastAPI app exposes /metrics via prometheus-fastapi-instrumentator.
+  # ``api`` resolves through the Docker Compose internal DNS.
+  - job_name: satzone-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:8000"]
+        labels:
+          service: satzone-api
+
+  # Self-monitoring — handy when debugging "why isn't this metric showing".
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

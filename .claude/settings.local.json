@@ -32,7 +32,8 @@
       "Bash(python -c \"import json; json.load\\(open\\(r'D:/Project/satzone/postman/edure.postman_environment.json'\\)\\)\")",
       "PowerShell(Get-ChildItem -Path \"D:\\\\Project\\\\satzone\" -Force | Where-Object { $_.Name -ne \".venv\" -and $_.Name -ne \".git\" } | Select-Object Mode, Name)",
       "Bash(python *)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "PowerShell(Start-Process \"http://localhost:3001/d/satzone-streaming/satzone-e28094-streaming-overview?orgId=1&refresh=10s&from=now-30m&to=now\")"
     ]
   }
 }

@@ -25,6 +25,11 @@ from pathlib import Path
 
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.core.metrics import (
+    hls_packaging_duration_seconds,
+    hls_packaging_in_flight,
+    hls_packaging_total,
+)
 from app.db.session import SessionLocal
 from app.models.course import Lesson
 from app.models.enums import HlsStatus
@@ -84,6 +89,18 @@ async def package_lesson_hls(lesson_id: uuid.UUID) -> None:
     Runs in its own async session so it can be scheduled from a
     BackgroundTasks callback that has already committed the upload.
     """
+    import time
+
+    hls_packaging_in_flight.inc()
+    started = time.monotonic()
+    try:
+        await _package_lesson_hls_impl(lesson_id)
+    finally:
+        hls_packaging_duration_seconds.observe(time.monotonic() - started)
+        hls_packaging_in_flight.dec()
+
+
+async def _package_lesson_hls_impl(lesson_id: uuid.UUID) -> None:
     async with SessionLocal() as session:
         lesson = await session.get(Lesson, lesson_id)
         if lesson is None or not lesson.video_url:
@@ -114,11 +131,13 @@ async def package_lesson_hls(lesson_id: uuid.UUID) -> None:
             lesson.hls_master_key = f"lessons/{lesson_id}/hls/master.m3u8"
             lesson.hls_status = HlsStatus.READY
             await session.commit()
+            hls_packaging_total.labels(outcome="ready").inc()
             logger.info("hls_ready", lesson_id=str(lesson_id))
         except Exception:  # noqa: BLE001
             logger.exception("hls_packaging_failed", lesson_id=str(lesson_id))
             lesson.hls_status = HlsStatus.FAILED
             await session.commit()
+            hls_packaging_total.labels(outcome="failed").inc()
 
 
 def _run_packaging(lesson_id: uuid.UUID, source_bytes: bytes, key_bytes: bytes) -> None:

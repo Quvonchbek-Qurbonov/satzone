@@ -1,0 +1,48 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: warn
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+# Docker service discovery — every running container becomes a log target.
+# We then keep only the satzone services (api/db/redis) via relabel rules so
+# Loki isn't flooded with prometheus/grafana/loki self-logs.
+scrape_configs:
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+
+    relabel_configs:
+      - source_labels: ["__meta_docker_container_name"]
+        regex: "/(satzone-.*)"
+        target_label: container
+      - source_labels: ["__meta_docker_container_label_com_docker_compose_service"]
+        target_label: service
+      - source_labels: ["service"]
+        regex: "(api|db|redis|prometheus|loki|grafana)"
+        action: keep
+
+    pipeline_stages:
+      # Container logs from the Docker JSON log driver wrap each line in
+      # ``{"log": "...", "stream": "stdout", "time": "..."}`` — unwrap so
+      # the actual app line is what Loki indexes.
+      - docker: {}
+      # FastAPI structlog with LOG_JSON=true emits JSON; promote useful
+      # fields to labels so you can filter/group by them in Grafana.
+      - json:
+          expressions:
+            level: level
+            event: event
+            request_id: request_id
+            method: method
+            path: path
+            status_code: status_code
+      - labels:
+          level:
+          event:

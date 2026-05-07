@@ -45,6 +45,10 @@ from sqlalchemy import select
 from app.api.deps import CurrentUser
 from app.core.config import settings
 from app.core.exceptions import NotFoundError, ValidationAppError
+from app.core.metrics import (
+    hls_segment_requests_total,
+    playback_tokens_issued_total,
+)
 from app.db.deps import DbSession
 from app.models.course import Course, Lesson
 from app.models.enums import HlsStatus
@@ -153,6 +157,7 @@ async def lesson_playback(
     token, expires = streaming_service.issue_playback_token(
         user_id=user.id, resource_id=lesson_id, scope="lesson", client_ip=cip
     )
+    playback_tokens_issued_total.labels(scope="lesson").inc()
     hls_url = _abs_url(
         request,
         f"{settings.API_V1_PREFIX}/lessons/{lesson_id}/hls/master.m3u8?t={token}",
@@ -191,6 +196,7 @@ async def course_preview_playback(
     token, expires = streaming_service.issue_playback_token(
         user_id=user.id, resource_id=course.id, scope="course_preview", client_ip=cip
     )
+    playback_tokens_issued_total.labels(scope="course_preview").inc()
     stream_url = _abs_url(
         request,
         f"{settings.API_V1_PREFIX}/courses/{course.id}/preview-stream?t={token}",
@@ -331,6 +337,11 @@ async def lesson_hls_segment(
     if lesson is None or lesson.hls_status != HlsStatus.READY:
         raise NotFoundError("HLS not packaged", code="hls_not_ready")
     seg_key = f"lessons/{lesson_id}/hls/{seg_name}"
+    # Tag the source so Grafana can chart "how often are we serving from
+    # disk vs falling through to S3" — the core "is the cache warm" signal.
+    from pathlib import Path as _P
+    source = "local" if (_P(settings.MEDIA_ROOT) / seg_key).is_file() else "s3"
+    hls_segment_requests_total.labels(source=source).inc()
     return _stream_object(request, seg_key)
 
 
