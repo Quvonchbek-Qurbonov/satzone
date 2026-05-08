@@ -109,6 +109,17 @@ class Settings(BaseSettings):
     DRM_LICENSE_URL: str | None = None
     DRM_API_KEY: str | None = None
 
+    # --- Payme (Uzbekistan) payment provider ---
+    # MERCHANT_ID + KEY come from Payme's merchant cabinet. Leave blank to
+    # disable payments (the API will return 502 on any pay/* call).
+    PAYME_MERCHANT_ID: str | None = None
+    PAYME_KEY: str | None = None
+    # When true, point at the Payme sandbox (test.paycom.uz). Flip to false in prod.
+    PAYME_TEST_MODE: bool = True
+    # Override only if Payme tells you to (e.g. dedicated merchant endpoint).
+    PAYME_API_URL: str | None = None
+    PAYME_CHECKOUT_URL: str | None = None
+
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
     def _parse_cors(cls, v: object) -> list[str]:

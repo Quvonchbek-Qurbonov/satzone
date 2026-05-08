@@ -4,18 +4,22 @@ from fastapi import APIRouter, Depends
 
 from app.api.v1 import (
     account,
+    activity,
     admin,
     assessments,
     auth,
     categories,
     courses,
+    downloads,
     drm,
     enrollments,
     health,
     home,
     instructor,
     instructors,
+    notes,
     onboarding,
+    payments,
     programs,
     streaming,
     wishlist,
@@ -41,4 +45,12 @@ api_router.include_router(instructor.router)
 api_router.include_router(assessments.router)
 api_router.include_router(streaming.router)
 api_router.include_router(drm.router)
+api_router.include_router(notes.router)
+api_router.include_router(downloads.attachments_router)
+api_router.include_router(downloads.downloads_router)
+api_router.include_router(activity.router)
+api_router.include_router(payments.methods_router)
+api_router.include_router(payments.orders_router)
+api_router.include_router(payments.me_orders_router)
+api_router.include_router(payments.payme_router)
 api_router.include_router(admin.router)

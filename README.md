@@ -76,7 +76,10 @@ uvicorn app.main:app --reload
 | Course detail      | `GET /courses/{slug}`, `/curriculum`, `/related`, `/reviews` (list/create/update/delete)        |
 | My Learnings       | `POST /me/enrollments`, `GET /me/enrollments`, `PUT .../lessons/{lesson_id}/progress`, `GET /me/certificates`, `/me/wishlist` |
 | Degree (Programs)  | `GET /programs`, `GET /programs/{slug}`, `POST /programs/{id}/enroll`, `GET /me/programs`       |
-| Account & Settings | `GET/PATCH/DELETE /me`, `POST/DELETE /me/avatar` (multipart image upload), `PUT /me/password`, `GET/PATCH /me/preferences/notifications`, `GET/DELETE /me/sessions` |
+| Account & Settings | `GET/PATCH/DELETE /me`, `POST/DELETE /me/avatar` (multipart image upload), `PUT /me/password`, `GET/PATCH /me/preferences/notifications`, `GET/DELETE /me/sessions`, `GET /me/activity/weekly`, `PUT /me/activity/weekly-goal` |
+| Notes              | `POST /me/notes`, `GET /me/notes` (filter `lesson_id`/`course_id`), `PATCH/DELETE /me/notes/{id}` |
+| Downloads          | `GET /lessons/{id}/attachments`, `POST/GET /me/downloads`, `DELETE /me/downloads/{id}` (resource files only — videos stay HLS-streamed) |
+| Payments           | `GET/POST /me/payment-methods`, `POST /me/payment-methods/{id}/verify/start`, `POST /me/payment-methods/{id}/verify/confirm`, `DELETE /me/payment-methods/{id}`, `POST /orders`, `GET /orders/{id}`, `DELETE /orders/{id}`, `POST /orders/{id}/pay/card`, `POST /orders/{id}/pay/payme`, `GET /me/orders`, `POST /payments/payme/callback` (Payme JSON-RPC) |
 | Admin              | `/admin/users`, `/admin/categories`, `/admin/instructors`, `/admin/courses`, `/admin/programs` (+ `/programs/{id}/courses` linking), `/admin/reviews`, `/admin/enrollments`, `/admin/certificates` — full CRUD + lifecycle (`publish`/`unpublish`/`archive`) + media uploads. All routes gated by `role=admin`. |
 
 ## Video streaming protection
@@ -101,6 +104,32 @@ The layers are honest about their limits: no protection prevents a determined us
 | `GET /lessons/{id}/hls/key?t=…` | Plaintext AES-128 content key (after Fernet unwrap) |
 | `POST /lessons/{id}/drm/license` | DRM license proxy (configure `DRM_PROVIDER`) |
 | `GET /courses/{slug}/preview-playback` + `/courses/{id}/preview-stream?t=…` | Course preview video — direct MP4 (marketing content, intentionally watchable) |
+
+## Payments (Payme + card-on-file)
+
+Course / program purchases run through a small order-then-pay flow. Both
+payment methods talk to **Payme (Uzbekistan)** under the hood — there is no
+direct PAN storage on this server.
+
+```
+POST /orders                                    # create pending order
+POST /me/payment-methods                        # save a card → Payme cards.create → token
+POST /me/payment-methods/{id}/verify/start      # Payme cards.get_verify_code (OTP)
+POST /me/payment-methods/{id}/verify/confirm    # Payme cards.verify
+POST /orders/{id}/pay/card                      # synchronous: receipts.create + receipts.pay
+POST /orders/{id}/pay/payme                     # async hosted checkout: returns checkout_url
+POST /payments/payme/callback                   # Merchant API JSON-RPC (Basic Paycom:<key>)
+```
+
+Set `PAYME_MERCHANT_ID` and `PAYME_KEY` in `.env`. Without them, every
+`pay/*` endpoint returns `502 payment_provider_unconfigured`. Default
+`PAYME_TEST_MODE=true` hits the sandbox — flip it off for production.
+
+When the order flips to `paid` (synchronously for card-on-file, or via
+`PerformTransaction` for the hosted flow) the user is auto-enrolled in the
+purchased course / program. Programs additionally enroll the user in every
+required course, exactly as `POST /programs/{id}/enroll` does for the free
+path.
 
 ## Observability
 

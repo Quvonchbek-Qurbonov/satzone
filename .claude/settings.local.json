@@ -36,7 +36,19 @@
       "PowerShell(Start-Process \"http://localhost:3001/d/satzone-streaming/satzone-e28094-streaming-overview?orgId=1&refresh=10s&from=now-30m&to=now\")",
       "PowerShell(Join-Path *)",
       "PowerShell(Get-Command *)",
-      "PowerShell(Test-Path *)"
+      "PowerShell(Test-Path *)",
+      "mcp__figma-desktop__get_design_context",
+      "mcp__figma-desktop__get_screenshot",
+      "Bash(cmd *)",
+      "PowerShell(Get-ChildItem -Force -Name | Where-Object { $_ -ne '.venv' })",
+      "PowerShell(Get-ChildItem app -Force -Name; Write-Output '---'; Get-ChildItem app -Recurse -File -Name | Where-Object { $_ -notmatch '__pycache__' })",
+      "PowerShell(Get-Content *)",
+      "PowerShell($f = 'C:\\\\Users\\\\user\\\\.claude\\\\projects\\\\D--Project-satzone\\\\50945103-a7c2-4b47-8f8c-6744ae0f801b\\\\tool-results\\\\mcp-figma-desktop-get_design_context-1778245430393.txt'; $fs = [System.IO.File]::OpenRead\\($f\\); $br = New-Object System.IO.BinaryReader\\($fs\\); $bytes = $br.ReadBytes\\(3000\\); $br.Close\\(\\); $fs.Close\\(\\); [System.Text.Encoding]::UTF8.GetString\\($bytes\\))",
+      "PowerShell(.\\\\.venv\\\\Scripts\\\\python.exe -c \"import json; json.load\\(open\\(r'D:\\\\Project\\\\satzone\\\\postman\\\\edure.postman_collection.json', encoding='utf-8'\\)\\); json.load\\(open\\(r'D:\\\\Project\\\\satzone\\\\postman\\\\edure.postman_environment.json', encoding='utf-8'\\)\\); print\\('json ok'\\)\")",
+      "PowerShell(.\\\\.venv\\\\Scripts\\\\python.exe -c \"import py_compile, sys; mods=['app/models/enums.py','app/models/payment.py','app/models/note.py','app/models/download.py','app/models/activity.py','app/models/__init__.py','app/schemas/payment.py','app/schemas/note.py','app/schemas/download.py','app/schemas/activity.py','app/services/payme_client.py','app/services/payment_service.py','app/services/note_service.py','app/services/download_service.py','app/services/activity_service.py','app/services/enrollment_service.py','app/api/v1/payments.py','app/api/v1/notes.py','app/api/v1/downloads.py','app/api/v1/activity.py','app/api/v1/router.py','app/core/config.py','alembic/versions/20260508_0009_payments_notes_downloads_activity.py']; [py_compile.compile\\(m, doraise=True\\) for m in mods]; print\\('compile ok'\\)\")",
+      "PowerShell(.\\\\.venv\\\\Scripts\\\\python.exe -c \"import sys; sys.path.insert\\(0, '.'\\); from app import models; print\\('models loaded:', len\\(models.__all__\\), 'symbols'\\)\")",
+      "PowerShell($env:POSTGRES_HOST='localhost'; $env:POSTGRES_USER='satzone'; $env:POSTGRES_PASSWORD='satzone'; $env:POSTGRES_DB='satzone'; $env:REDIS_HOST='localhost'; $env:JWT_SECRET_KEY='test_secret_for_import_check_only'; .\\\\.venv\\\\Scripts\\\\python.exe -c \"import sys; sys.path.insert\\(0, '.'\\); from app.api.v1.router import api_router; print\\('routes:', len\\(api_router.routes\\)\\)\")",
+      "PowerShell($env:POSTGRES_HOST='localhost'; $env:POSTGRES_USER='satzone'; $env:POSTGRES_PASSWORD='satzone'; $env:POSTGRES_DB='satzone'; $env:REDIS_HOST='localhost'; $env:JWT_SECRET_KEY='x'; .\\\\.venv\\\\Scripts\\\\python.exe -c \"import sys; sys.path.insert\\(0, '.'\\); import importlib; mods=['app.models','app.schemas.payment','app.schemas.note','app.schemas.download','app.schemas.activity','app.api.v1.payments','app.api.v1.notes','app.api.v1.downloads','app.api.v1.activity','app.services.payment_service','app.services.payme_client','app.services.note_service','app.services.download_service','app.services.activity_service']; [importlib.import_module\\(m\\) for m in mods]; print\\('all new modules import ok'\\)\")"
     ]
   }
 }

@@ -1898,6 +1898,301 @@
       ]
     },
     {
+      "name": "Notes",
+      "description": "Per-lesson notes (My Learning → Note screens). Notes are tied to a (user, lesson) pair; the service auto-fills the course id at create time.",
+      "item": [
+        {
+          "name": "Create note",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j && j.id) pm.environment.set('note_id', j.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"lesson_id\": \"{{lesson_id}}\",\n  \"title\": \"Quick recap\",\n  \"body\": \"Recap of what I just watched.\",\n  \"timestamp_seconds\": 60\n}"},
+            "url": "{{base_url}}/me/notes"
+          }
+        },
+        {
+          "name": "List my notes",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/me/notes?lesson_id={{lesson_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["me", "notes"],
+              "query": [
+                {"key": "lesson_id", "value": "{{lesson_id}}"},
+                {"key": "course_id", "value": "{{course_id}}", "disabled": true}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update note",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"body\": \"Updated note text.\"\n}"},
+            "url": "{{base_url}}/me/notes/{{note_id}}"
+          }
+        },
+        {
+          "name": "Delete note",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/me/notes/{{note_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Downloads",
+      "description": "Lesson resource attachments + per-user 'saved for offline' tracking (My Learning → Download). Videos are intentionally excluded — those go through /lessons/{id}/playback.",
+      "item": [
+        {
+          "name": "List lesson attachments",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (Array.isArray(j) && j.length) pm.environment.set('attachment_id', j[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/lessons/{{lesson_id}}/attachments"
+          }
+        },
+        {
+          "name": "Save attachment for offline",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j && j.id) pm.environment.set('download_id', j.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"attachment_id\": \"{{attachment_id}}\"\n}"},
+            "url": "{{base_url}}/me/downloads"
+          }
+        },
+        {
+          "name": "List my downloads",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/me/downloads"
+          }
+        },
+        {
+          "name": "Remove from downloads",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/me/downloads/{{download_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Activity",
+      "description": "Daily activity rollups + weekly goal (Home → Set Weekly Learning Goals).",
+      "item": [
+        {
+          "name": "Get weekly activity",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/me/activity/weekly"
+          }
+        },
+        {
+          "name": "Set weekly goal",
+          "request": {
+            "method": "PUT",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"weekly_goal_minutes\": 180\n}"},
+            "url": "{{base_url}}/me/activity/weekly-goal"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "description": "Course / program checkout. Saved cards go through Payme cards.create + cards.verify; Payme hosted checkout returns a checkout_url for redirect.",
+      "item": [
+        {
+          "name": "Save card",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j && j.id) pm.environment.set('payment_method_id', j.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"card_number\": \"8600490100000000\",\n  \"expires_month\": 12,\n  \"expires_year\": 2027,\n  \"cardholder_name\": \"DEMO USER\",\n  \"set_default\": true\n}"},
+            "url": "{{base_url}}/me/payment-methods"
+          }
+        },
+        {
+          "name": "List saved cards",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/me/payment-methods"
+          }
+        },
+        {
+          "name": "Start card verification (OTP)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/me/payment-methods/{{payment_method_id}}/verify/start"
+          }
+        },
+        {
+          "name": "Confirm card verification",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"code\": \"666666\"\n}"},
+            "url": "{{base_url}}/me/payment-methods/{{payment_method_id}}/verify/confirm"
+          }
+        },
+        {
+          "name": "Delete saved card",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/me/payment-methods/{{payment_method_id}}"
+          }
+        },
+        {
+          "name": "Create order (course)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j && j.id) pm.environment.set('order_id', j.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"item_kind\": \"course\",\n  \"course_id\": \"{{course_id}}\"\n}"},
+            "url": "{{base_url}}/orders"
+          }
+        },
+        {
+          "name": "Create order (program)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"item_kind\": \"program\",\n  \"program_id\": \"{{program_id}}\"\n}"},
+            "url": "{{base_url}}/orders"
+          }
+        },
+        {
+          "name": "Get order",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/orders/{{order_id}}"
+          }
+        },
+        {
+          "name": "Cancel order",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/orders/{{order_id}}"
+          }
+        },
+        {
+          "name": "Pay order (saved card)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"payment_method_id\": \"{{payment_method_id}}\"\n}"},
+            "url": "{{base_url}}/orders/{{order_id}}/pay/card"
+          }
+        },
+        {
+          "name": "Pay order (Payme hosted checkout)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j && j.checkout_url) pm.environment.set('payme_checkout_url', j.checkout_url);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"return_url\": \"{{base_url}}/payments/return\"\n}"},
+            "url": "{{base_url}}/orders/{{order_id}}/pay/payme"
+          }
+        },
+        {
+          "name": "List my orders",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/me/orders"
+          }
+        },
+        {
+          "name": "Payme merchant callback (test)",
+          "request": {
+            "auth": {
+              "type": "basic",
+              "basic": [
+                {"key": "username", "value": "Paycom"},
+                {"key": "password", "value": "{{payme_key}}"}
+              ]
+            },
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"CheckPerformTransaction\",\n  \"params\": {\n    \"amount\": 10000,\n    \"account\": {\"order_id\": \"{{order_id}}\"}\n  }\n}"},
+            "url": "{{base_url}}/payments/payme/callback",
+            "description": "Simulates a call FROM Payme to our backend. Set payme_key in the environment to PAYME_KEY from .env."
+          }
+        }
+      ]
+    },
+    {
       "name": "Admin",
       "description": "Admin-only endpoints. Caller must have role=admin.",
       "item": [

@@ -16,6 +16,7 @@ from app.models.course import Course, CourseSection, Lesson
 from app.models.enrollment import Enrollment, LessonProgress, Wishlist
 from app.models.enums import PublishStatus
 from app.models.user import User
+from app.services import activity_service
 
 
 def _now() -> datetime:
@@ -94,7 +95,8 @@ async def get_enrollment_for_user(
         select(Enrollment)
         .where(Enrollment.id == enrollment_id)
         .options(
-            selectinload(Enrollment.course),
+            selectinload(Enrollment.course).selectinload(Course.instructor),
+            selectinload(Enrollment.course).selectinload(Course.category),
             selectinload(Enrollment.last_lesson),
         )
     )
@@ -141,17 +143,29 @@ async def update_lesson_progress(
         progress = LessonProgress(enrollment_id=enrollment.id, lesson_id=lesson_id)
         session.add(progress)
 
+    prev_watched = progress.watched_seconds
     if last_position_seconds is not None:
         progress.last_position_seconds = last_position_seconds
     if watched_seconds is not None:
         progress.watched_seconds = max(progress.watched_seconds, watched_seconds)
+    just_completed = False
     if completed is True and progress.completed_at is None:
         progress.completed_at = _now()
+        just_completed = True
     elif completed is False:
         progress.completed_at = None
 
     enrollment.last_lesson_id = lesson_id
     enrollment.last_accessed_at = _now()
+
+    minutes_delta = max(0, (progress.watched_seconds - prev_watched)) // 60
+    if minutes_delta > 0 or just_completed:
+        await activity_service.record_minutes(
+            session,
+            user.id,
+            minutes=minutes_delta,
+            completed_lesson=just_completed,
+        )
 
     await session.flush()
     await _recompute_progress(session, enrollment)

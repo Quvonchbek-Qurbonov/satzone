@@ -4,9 +4,9 @@ Three files for Postman:
 
 | File | Purpose |
 | ---- | ------- |
-| `edure.postman_collection.json` | Postman Collection v2.1 — 132 requests across 14 folders, with auto-token-capture scripts. The Video Streaming folder is HLS-only for lessons (direct-MP4 endpoint removed). |
+| `edure.postman_collection.json` | Postman Collection v2.1 — Auth, Onboarding, Home, Explore, Reviews, My Learnings, Notes, Downloads, Activity, Video Streaming, Instructor, Assessments, Degree, Account & Settings, **Payments**, Admin. Auto-token-capture scripts on key requests. The Video Streaming folder is HLS-only for lessons (direct-MP4 endpoint removed). |
 | `edure.postman_environment.json` | Environment with `base_url`, `access_token`, `refresh_token`, and other useful slugs/IDs |
-| `openapi.json` | Raw OpenAPI 3 spec exported from the live API (for tools that prefer OpenAPI) |
+| `openapi.json` | Raw OpenAPI 3 spec exported from the live API (for tools that prefer OpenAPI) — regenerate after adding endpoints with `curl http://localhost:8000/api/v1/openapi.json -o postman/openapi.json`. |
 
 ## Import
 
@@ -42,6 +42,12 @@ These requests have test scripts that populate environment variables for downstr
 | Admin → Categories → Create | `admin_category_id` |
 | Admin → Instructors → Create | `admin_instructor_id` |
 | Admin → Programs → Create | `admin_program_id` |
+| Notes → Create note | `note_id` |
+| Downloads → List lesson attachments | `attachment_id` |
+| Downloads → Save attachment for offline | `download_id` |
+| Payments → Save card | `payment_method_id` |
+| Payments → Create order | `order_id` |
+| Payments → Pay order (Payme hosted checkout) | `payme_checkout_url` |
 
 A clean run order to exercise everything end-to-end:
 
