@@ -138,7 +138,7 @@ async def create_review(
     await session.flush()
     await _recompute_course_rating(session, course.id)
     await session.commit()
-    await session.refresh(review)
+    await session.refresh(review, attribute_names=["user"])
     return ReviewRead.model_validate(review)
 
 
@@ -164,7 +164,7 @@ async def update_my_review(
     await session.flush()
     await _recompute_course_rating(session, course.id)
     await session.commit()
-    await session.refresh(review)
+    await session.refresh(review, attribute_names=["user"])
     return ReviewRead.model_validate(review)
 
 
