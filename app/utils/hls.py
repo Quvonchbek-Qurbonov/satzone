@@ -127,12 +127,15 @@ async def _package_lesson_hls_impl(lesson_id: uuid.UUID) -> None:
             return
 
         try:
-            await asyncio.to_thread(_run_packaging, lesson_id, source_bytes, plaintext_key)
+            seg_count = await asyncio.to_thread(
+                _run_packaging, lesson_id, source_bytes, plaintext_key
+            )
             lesson.hls_master_key = f"lessons/{lesson_id}/hls/master.m3u8"
+            lesson.hls_segments_count = seg_count
             lesson.hls_status = HlsStatus.READY
             await session.commit()
             hls_packaging_total.labels(outcome="ready").inc()
-            logger.info("hls_ready", lesson_id=str(lesson_id))
+            logger.info("hls_ready", lesson_id=str(lesson_id), segments=seg_count)
         except Exception:  # noqa: BLE001
             logger.exception("hls_packaging_failed", lesson_id=str(lesson_id))
             lesson.hls_status = HlsStatus.FAILED
@@ -140,8 +143,12 @@ async def _package_lesson_hls_impl(lesson_id: uuid.UUID) -> None:
             hls_packaging_total.labels(outcome="failed").inc()
 
 
-def _run_packaging(lesson_id: uuid.UUID, source_bytes: bytes, key_bytes: bytes) -> None:
+def _run_packaging(lesson_id: uuid.UUID, source_bytes: bytes, key_bytes: bytes) -> int:
     """Sync helper — runs ffmpeg in a temp dir, then ships outputs to storage.
+
+    Returns the number of ``seg_*.ts`` segments produced; the caller persists
+    that on the Lesson row so the anti-seek gate knows the final segment
+    index.
 
     The manifest written by ffmpeg references segments by relative name and
     embeds the placeholder ``URI=`` we hand it; the streaming endpoint
@@ -159,8 +166,12 @@ def _run_packaging(lesson_id: uuid.UUID, source_bytes: bytes, key_bytes: bytes) 
         _run_ffmpeg(source, workdir, key_info)
 
         prefix = f"lessons/{lesson_id}/hls"
+        seg_count = 0
         for path in sorted(workdir.iterdir()):
             if path.name in ("source.bin", "content.key", "key.info"):
                 continue
             data = path.read_bytes()
             write_object(f"{prefix}/{path.name}", data)
+            if path.name.startswith("seg_") and path.name.endswith(".ts"):
+                seg_count += 1
+        return seg_count

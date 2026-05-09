@@ -102,6 +102,20 @@ class Settings(BaseSettings):
     # Auto-package on lesson video upload. Disable to package out-of-band.
     HLS_AUTO_PACKAGE: bool = True
 
+    # Anti-seek / max-2x playback gating. Enforcement is driven entirely by
+    # HLS segment fetches — there is no JS heartbeat to forge.
+    #   * STREAM_LOOKAHEAD_SEGMENTS — how many segments past the watermark
+    #     the manifest will expose. This is the player's forward buffer; it
+    #     also bounds how far a user can "seek ahead" (LOOKAHEAD * segment
+    #     duration). 8 × 6s = ~48s, comfortable for HLS players, painfully
+    #     short for skipping.
+    #   * STREAM_MAX_RATE_MULTIPLIER — the ceiling on effective playback
+    #     speed. Segment delivery is throttled so accumulated play credit
+    #     must satisfy ``segments_advanced * seg_dur <= credit * MAX_RATE``.
+    #     2.0 lines up with the UI's max-rate selector.
+    STREAM_LOOKAHEAD_SEGMENTS: int = 8
+    STREAM_MAX_RATE_MULTIPLIER: float = 2.0
+
     # DRM (Widevine/FairPlay/PlayReady) — provider integration point.
     # "none" disables DRM. Other values require a paid license server (ezDRM,
     # Bitmovin, AWS MediaPackage, etc.); plug credentials into app/utils/drm.py.

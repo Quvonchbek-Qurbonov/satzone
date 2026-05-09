@@ -174,6 +174,16 @@ async def update_lesson_progress(
     return progress
 
 
+async def recompute_enrollment_progress(
+    session: AsyncSession, enrollment: Enrollment
+) -> None:
+    """Public wrapper around the progress recomputation used both by the
+    progress-update endpoint and by the streaming layer when a segment fetch
+    crosses a lesson into the completed state.
+    """
+    await _recompute_progress(session, enrollment)
+
+
 async def _recompute_progress(session: AsyncSession, enrollment: Enrollment) -> None:
     total = (
         await session.execute(

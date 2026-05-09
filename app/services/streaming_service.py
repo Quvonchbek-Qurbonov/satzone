@@ -35,7 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.exceptions import ForbiddenError, NotFoundError, UnauthorizedError
 from app.models.course import Course, CourseSection, Lesson
-from app.models.enrollment import Enrollment
+from app.models.enrollment import Enrollment, LessonProgress
 from app.models.enums import PublishStatus, UserRole
 from app.models.media import MediaKey
 from app.models.user import User
@@ -185,6 +185,159 @@ async def authorize_lesson_playback(
             code="not_enrolled",
         )
     return lesson
+
+
+async def lookup_enforced_enrollment(
+    session: AsyncSession, user: User, lesson: Lesson
+) -> Enrollment | None:
+    """Return the enrollment whose anti-seek state we should drive — or
+    ``None`` if the caller is exempt (admin, course owner, or a non-enrolled
+    user watching a free preview).
+
+    Exempt callers see the full HLS manifest and no segment is gated.
+    """
+    if user.role == UserRole.ADMIN:
+        return None
+    course_id = (
+        await session.execute(
+            select(CourseSection.course_id).where(CourseSection.id == lesson.section_id)
+        )
+    ).scalar_one()
+    from app.models.catalog import Instructor
+
+    course = await session.get(Course, course_id)
+    if course is not None:
+        owner_user_id = (
+            await session.execute(
+                select(Instructor.user_id).where(Instructor.id == course.instructor_id)
+            )
+        ).scalar_one_or_none()
+        if owner_user_id is not None and owner_user_id == user.id:
+            return None
+
+    enrollment = (
+        await session.execute(
+            select(Enrollment).where(
+                Enrollment.user_id == user.id, Enrollment.course_id == course_id
+            )
+        )
+    ).scalar_one_or_none()
+    return enrollment
+
+
+# ---------- Anti-seek / max-2x gating ----------
+
+
+class SegmentSkipBlocked(ForbiddenError):
+    """Raised when a segment fetch would skip past the allowed window."""
+
+    code = "segment_skip_blocked"
+    message = "Skipping ahead is not allowed for this lesson"
+
+
+class SegmentRateExceeded(ForbiddenError):
+    """Raised when a segment fetch would exceed the max playback rate."""
+
+    code = "segment_rate_exceeded"
+    message = "Playback rate limit exceeded"
+    status_code = 429
+
+
+async def _get_or_create_progress(
+    session: AsyncSession, enrollment: Enrollment, lesson_id: uuid.UUID
+) -> LessonProgress:
+    progress = (
+        await session.execute(
+            select(LessonProgress).where(
+                LessonProgress.enrollment_id == enrollment.id,
+                LessonProgress.lesson_id == lesson_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if progress is None:
+        progress = LessonProgress(enrollment_id=enrollment.id, lesson_id=lesson_id)
+        session.add(progress)
+        await session.flush()
+    return progress
+
+
+def visible_segment_ceiling(max_segment_index: int) -> int:
+    """Highest segment index the manifest may currently expose to the user.
+
+    The sliding window is `[0, max_segment_index + LOOKAHEAD]`. Segments past
+    that simply don't appear in the served manifest, which is what makes
+    naive HLS players physically unable to seek beyond it.
+    """
+    return max_segment_index + settings.STREAM_LOOKAHEAD_SEGMENTS
+
+
+async def gate_segment_fetch(
+    session: AsyncSession,
+    enrollment: Enrollment,
+    lesson: Lesson,
+    seg_index: int,
+) -> tuple[LessonProgress, bool]:
+    """Authorize a single HLS segment fetch and advance the watermark.
+
+    The two enforcement rules:
+
+    1. **Anti-skip** — ``seg_index`` may not be more than ``LOOKAHEAD``
+       segments ahead of the user's current watermark. Re-fetching segments
+       at or below the watermark is always allowed (rewatch, re-buffer).
+    2. **Anti-fast-forward** — the wall-clock time the user has actually
+       spent in the player (``play_credit_seconds``, with each gap clamped
+       at one segment duration so pauses/backgrounded tabs don't bank
+       credit) must be at least
+       ``(post_watermark + 1 - LOOKAHEAD) * seg_dur / MAX_RATE``.
+
+    On success, persists the new ``max_segment_index``,
+    ``play_credit_seconds`` and ``last_segment_at``, and marks the lesson
+    complete the moment the watermark reaches the final segment. Returns
+    ``(progress, just_completed)`` so callers can fan out completion side
+    effects (enrollment recompute, daily-activity rollup) only on the
+    transition.
+    """
+    progress = await _get_or_create_progress(session, enrollment, lesson.id)
+
+    seg_dur = settings.HLS_SEGMENT_SECONDS
+    lookahead = settings.STREAM_LOOKAHEAD_SEGMENTS
+    max_rate = settings.STREAM_MAX_RATE_MULTIPLIER
+    now = _now()
+
+    # Rule 1 — anti-skip. Re-fetching ≤ watermark is fine; this only blocks
+    # leaping past the look-ahead window.
+    if seg_index > progress.max_segment_index + lookahead:
+        raise SegmentSkipBlocked()
+
+    # Build the candidate updated state. We commit it only after the rate
+    # check passes.
+    if progress.last_segment_at is None:
+        gap = 0
+    else:
+        gap = max(0, int((now - progress.last_segment_at).total_seconds()))
+    credit = progress.play_credit_seconds + min(gap, seg_dur)
+    new_max = max(progress.max_segment_index, seg_index)
+
+    # Rule 2 — anti-fast-forward. The first ``lookahead`` segments are free
+    # so initial buffering works; everything past that is rate-limited
+    # against accumulated play credit.
+    required_credit = max(0, (new_max + 1 - lookahead) * seg_dur / max_rate)
+    if credit < required_credit:
+        # Don't persist; let the player retry once enough time has elapsed.
+        raise SegmentRateExceeded()
+
+    progress.max_segment_index = new_max
+    progress.play_credit_seconds = credit
+    progress.last_segment_at = now
+
+    just_completed = False
+    total = lesson.hls_segments_count
+    if total is not None and new_max >= total - 1 and progress.completed_at is None:
+        progress.completed_at = now
+        just_completed = True
+
+    await session.flush()
+    return progress, just_completed
 
 
 async def authorize_course_preview(

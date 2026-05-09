@@ -20,6 +20,13 @@ class LessonPlaybackResponse(ORMModel):
     # ``hls_status == "ready"``.
     hls_url: str | None = None
     hls_status: HlsStatus | None = None
+    # Total HLS segments in the lesson — published so the player can render
+    # a static, non-interactive progress bar that matches the server's
+    # watermark. Null while packaging is still running.
+    total_segments: int | None = None
+    # Authoritative segment duration; combine with ``total_segments`` to
+    # show total length without trusting ``<video>.duration``.
+    segment_seconds: int | None = None
     drm: DRMInit | None = None
 
 

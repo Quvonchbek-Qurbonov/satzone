@@ -67,9 +67,15 @@ A clean run order to exercise everything end-to-end:
 
 Lesson playback is HLS-only — there is no direct-MP4 endpoint, because plain MP4 over HTTP is downloadable. Tokens are bound to the requester's IP (`cip` claim); replay from a different network returns 401.
 
+For **enrolled students**, the manifest endpoint serves a *sliding* HLS playlist: only segments up to `max_segment_index + STREAM_LOOKAHEAD_SEGMENTS` are visible, so the player physically cannot seek beyond the watched window. Segment fetches are also rate-limited so accumulated play time can't exceed `STREAM_MAX_RATE_MULTIPLIER` × wall clock — anything faster is rejected with `segment_rate_exceeded` (HTTP 429). Skipping past the look-ahead returns `segment_skip_blocked` (HTTP 403). Lesson completion is derived server-side from the segment watermark; clients can no longer mark a lesson complete by hitting the progress endpoint with `completed:true` if the watermark hasn't reached the final segment.
+
+Admins, course owners, and viewers of `is_free_preview` lessons bypass the gate and see the full VOD manifest.
+
+`/lesson playback` returns `total_segments` and `segment_seconds` so the player can render a static, non-interactive progress bar that matches the server's authoritative duration without trusting `<video>.duration`.
+
 1. **Auth → Login** as a user enrolled in the course (or use a `is_free_preview=true` lesson; admins / course owners can also bypass).
 2. **Explore → Course curriculum** to capture `lesson_id`.
-3. **Video Streaming → Lesson playback** — captures `playback_token`, `lesson_hls_url`. Returns `hls_url=null` while `hls_status` is still `pending` (background packaging) — poll until `ready`.
+3. **Video Streaming → Lesson playback** — captures `playback_token`, `lesson_hls_url`. Returns `hls_url=null` while `hls_status` is still `pending` (background packaging) — poll until `ready`. Also returns `total_segments` + `segment_seconds`.
 4. **Video Streaming → Lesson HLS — master playlist** returns the manifest with rewritten signed URIs for both the AES-128 key and every segment — pass it straight to hls.js / Safari.
 5. **Video Streaming → Lesson HLS — content key** returns the 16-byte content key. The player fetches this automatically when following the manifest.
 6. **Video Streaming → Lesson HLS — first segment** is encrypted bytes; only useful in combination with the key.

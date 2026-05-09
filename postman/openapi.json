@@ -11843,6 +11843,30 @@
               }
             ]
           },
+          "total_segments": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Segments",
+            "description": "Total HLS segments in the lesson — published so the player can render a static, non-interactive progress bar."
+          },
+          "segment_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Segment Seconds",
+            "description": "Authoritative segment duration; combine with total_segments to show total length without trusting <video>.duration."
+          },
           "drm": {
             "anyOf": [
               {

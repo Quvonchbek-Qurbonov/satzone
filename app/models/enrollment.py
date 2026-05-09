@@ -58,6 +58,16 @@ class LessonProgress(UUIDPKMixin, TimestampMixin, Base):
     watched_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     last_position_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
+    # Anti-seek / max-2x playback state. Driven by HLS segment fetches —
+    # ``max_segment_index`` is the highest segment index ever delivered to
+    # this user for this lesson; ``play_credit_seconds`` accumulates effective
+    # playback time (with each gap clamped at one segment duration so a long
+    # pause cannot bank credit); ``last_segment_at`` is the wall clock of the
+    # previous fetch and seeds the next gap calculation.
+    max_segment_index: Mapped[int] = mapped_column(Integer, nullable=False, default=-1)
+    play_credit_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_segment_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
     enrollment: Mapped[Enrollment] = relationship(back_populates="lesson_progress")
     lesson: Mapped[Lesson] = relationship()
 

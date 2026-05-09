@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from typing import Annotated
+from typing import Annotated, Callable
 
 from fastapi import APIRouter, Query, Request, Response
 from fastapi.responses import StreamingResponse
@@ -52,12 +52,13 @@ from app.core.metrics import (
 from app.db.deps import DbSession
 from app.models.course import Course, Lesson
 from app.models.enums import HlsStatus
+from app.models.user import User
 from app.schemas.streaming import (
     DRMInit,
     LessonPlaybackResponse,
     PreviewPlaybackResponse,
 )
-from app.services import streaming_service
+from app.services import activity_service, enrollment_service, streaming_service
 from app.utils.storage import open_range, read_object, stat_object
 
 router = APIRouter(tags=["streaming"])
@@ -167,6 +168,8 @@ async def lesson_playback(
         expires_at=expires,
         hls_url=hls_url,
         hls_status=lesson.hls_status,
+        total_segments=lesson.hls_segments_count,
+        segment_seconds=settings.HLS_SEGMENT_SECONDS,
         drm=_drm_init(lesson_id),
     )
 
@@ -262,6 +265,82 @@ def _stream_object(request: Request, key: str) -> StreamingResponse:
 # =============================================================================
 
 
+_SEG_NAME_RE = re.compile(r"^seg_(\d{4,6})\.ts$")
+
+
+def _seg_index_from_name(name: str) -> int | None:
+    m = _SEG_NAME_RE.match(name.strip())
+    return int(m.group(1)) if m else None
+
+
+def _render_manifest(
+    manifest: str,
+    *,
+    ceiling: int | None,
+    seg_url: Callable[[str], str],
+    key_url: str,
+) -> str:
+    """Rewrite a packaged VOD manifest for serving.
+
+    ``ceiling`` — when set, only segments with index ≤ ceiling are emitted,
+    the playlist type is downgraded from VOD to EVENT, and ``EXT-X-ENDLIST``
+    is dropped so the player keeps polling for new segments as the user's
+    watermark advances. When ``None`` (privileged callers), the original
+    full playlist is preserved.
+    """
+    out: list[str] = []
+    pending_tags: list[str] = []
+    sliding = ceiling is not None
+    saw_last = True  # if not sliding we always close with ENDLIST as written
+
+    for line in manifest.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            pending_tags.append(line)
+            continue
+        if stripped.startswith("#EXT-X-KEY"):
+            rewritten = re.sub(r'URI="[^"]+"', f'URI="{key_url}"', line)
+            out.append(rewritten)
+            continue
+        if stripped.startswith("#EXT-X-PLAYLIST-TYPE"):
+            out.append("#EXT-X-PLAYLIST-TYPE:EVENT" if sliding else line)
+            continue
+        if stripped.startswith("#EXT-X-ENDLIST"):
+            # Only emit ENDLIST when the window covers the whole video.
+            if not sliding or saw_last:
+                out.append(line)
+            continue
+        if stripped.startswith("#"):
+            # Per-segment tags (#EXTINF, #EXT-X-DISCONTINUITY, …) buffer
+            # until we know whether to emit their accompanying segment.
+            pending_tags.append(line)
+            continue
+
+        # Segment URI line.
+        seg_idx = _seg_index_from_name(stripped)
+        if seg_idx is None:
+            # Unrecognised — pass through with its tags.
+            out.extend(pending_tags)
+            out.append(line)
+            pending_tags = []
+            continue
+        if sliding and seg_idx > ceiling:
+            # Skip this segment block entirely; keep saw_last=False so we
+            # also drop the trailing ENDLIST.
+            pending_tags = []
+            saw_last = False
+            continue
+        out.extend(pending_tags)
+        out.append(seg_url(stripped))
+        pending_tags = []
+
+    # Anything after the last segment (e.g. blank lines we stashed) gets
+    # appended only if we're not in a sliding-and-truncated state.
+    if not sliding or saw_last:
+        out.extend(pending_tags)
+    return "\n".join(out) + "\n"
+
+
 @router.get("/lessons/{lesson_id}/hls/master.m3u8")
 async def lesson_hls_master(
     lesson_id: uuid.UUID,
@@ -271,17 +350,25 @@ async def lesson_hls_master(
 ) -> Response:
     """Return the per-lesson HLS master playlist with rewritten signed URIs.
 
+    Enrolled students see a *sliding* manifest exposing only segments up to
+    ``max_segment_index + LOOKAHEAD`` — they can't see (and so can't seek
+    to) anything beyond that window. Admins, course owners, and free-preview
+    viewers get the full VOD manifest unchanged.
+
     The packager writes manifests with relative URIs; we rewrite each
     ``EXT-X-KEY`` and segment line to absolute paths under our domain that
     carry the same ``?t=`` token, so the player can fetch them without
     reaching back into S3 directly.
     """
-    streaming_service.verify_playback_token(
+    token_user_id = streaming_service.verify_playback_token(
         t,
         expected_resource_id=lesson_id,
         expected_scope="lesson",
         expected_client_ip=streaming_service.request_client_ip(request),
     )
+    user = await session.get(User, token_user_id)
+    if user is None or not user.is_active:
+        raise NotFoundError("Lesson not found", code="lesson_not_found")
     lesson = await session.get(Lesson, lesson_id)
     if lesson is None or not lesson.hls_master_key or lesson.hls_status != HlsStatus.READY:
         raise NotFoundError("HLS not packaged for this lesson", code="hls_not_ready")
@@ -291,24 +378,23 @@ async def lesson_hls_master(
         raise NotFoundError("HLS manifest missing", code="hls_manifest_missing")
     manifest = manifest_bytes.decode("utf-8")
 
+    enrollment = await streaming_service.lookup_enforced_enrollment(session, user, lesson)
+    ceiling: int | None = None
+    if enrollment is not None:
+        progress = await streaming_service._get_or_create_progress(
+            session, enrollment, lesson.id
+        )
+        await session.commit()
+        ceiling = streaming_service.visible_segment_ceiling(progress.max_segment_index)
+
     base = f"{settings.API_V1_PREFIX}/lessons/{lesson_id}/hls"
-    rewritten_lines: list[str] = []
-    for line in manifest.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("#EXT-X-KEY"):
-            rewritten_lines.append(
-                re.sub(
-                    r'URI="[^"]+"',
-                    f'URI="{_abs_url(request, base + "/key?t=" + t)}"',
-                    line,
-                )
-            )
-        elif stripped and not stripped.startswith("#"):
-            # Segment line — rewrite the relative segment name to a signed URL.
-            rewritten_lines.append(_abs_url(request, f"{base}/seg/{stripped}?t={t}"))
-        else:
-            rewritten_lines.append(line)
-    body = "\n".join(rewritten_lines) + "\n"
+    abs_base = _abs_url(request, base)
+    body = _render_manifest(
+        manifest,
+        ceiling=ceiling,
+        seg_url=lambda name: f"{abs_base}/seg/{name}?t={t}",
+        key_url=f"{abs_base}/key?t={t}",
+    )
     return Response(
         content=body,
         media_type="application/vnd.apple.mpegurl",
@@ -324,18 +410,46 @@ async def lesson_hls_segment(
     session: DbSession,
     t: Annotated[str, Query()],
 ) -> StreamingResponse:
-    streaming_service.verify_playback_token(
+    token_user_id = streaming_service.verify_playback_token(
         t,
         expected_resource_id=lesson_id,
         expected_scope="lesson",
         expected_client_ip=streaming_service.request_client_ip(request),
     )
+    user = await session.get(User, token_user_id)
+    if user is None or not user.is_active:
+        raise NotFoundError("Lesson not found", code="lesson_not_found")
     # Pin to a strict naming pattern to defeat path traversal.
     if not re.fullmatch(r"seg_\d{4,6}\.ts", seg_name):
         raise ValidationAppError("Invalid segment name", code="invalid_segment_name")
     lesson = await session.get(Lesson, lesson_id)
     if lesson is None or lesson.hls_status != HlsStatus.READY:
         raise NotFoundError("HLS not packaged", code="hls_not_ready")
+
+    # Anti-seek / max-2x gate. Only enforced for enrolled students; admins,
+    # the course owner, and free-preview viewers bypass it.
+    enrollment = await streaming_service.lookup_enforced_enrollment(session, user, lesson)
+    if enrollment is not None:
+        seg_idx = _seg_index_from_name(seg_name)
+        if seg_idx is None:
+            raise ValidationAppError("Invalid segment name", code="invalid_segment_name")
+        progress, just_completed = await streaming_service.gate_segment_fetch(
+            session, enrollment, lesson, seg_idx
+        )
+        # If this fetch crossed the lesson into the completed state, ripple
+        # the change into enrollment progress + daily activity.
+        if just_completed:
+            enrollment.last_lesson_id = lesson.id
+            enrollment.last_accessed_at = progress.last_segment_at
+            await enrollment_service.recompute_enrollment_progress(session, enrollment)
+            await activity_service.record_minutes(
+                session,
+                user.id,
+                minutes=max(0, lesson.duration_seconds // 60),
+                completed_lesson=True,
+            )
+        await session.commit()
+
     seg_key = f"lessons/{lesson_id}/hls/{seg_name}"
     # Tag the source so Grafana can chart "how often are we serving from
     # disk vs falling through to S3" — the core "is the cache warm" signal.

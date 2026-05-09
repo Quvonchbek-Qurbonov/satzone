@@ -138,8 +138,11 @@ class Lesson(UUIDPKMixin, TimestampMixin, Base):
 
     # HLS packaging state — populated asynchronously after a video upload.
     # ``hls_master_key`` is the storage key of the master ``.m3u8`` manifest;
-    # ``hls_status`` reflects packaging progress.
+    # ``hls_status`` reflects packaging progress. ``hls_segments_count`` is
+    # populated once packaging completes and is the authoritative count
+    # used by the anti-seek gating layer to detect "fully watched".
     hls_master_key: Mapped[str | None] = mapped_column(String(500))
     hls_status: Mapped[HlsStatus | None] = mapped_column(hls_status_enum)
+    hls_segments_count: Mapped[int | None] = mapped_column(Integer)
 
     section: Mapped[CourseSection] = relationship(back_populates="lessons")
