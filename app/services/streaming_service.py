@@ -255,7 +255,17 @@ async def _get_or_create_progress(
         )
     ).scalar_one_or_none()
     if progress is None:
-        progress = LessonProgress(enrollment_id=enrollment.id, lesson_id=lesson_id)
+        # See note in enrollment_service: column defaults are insert-time, so
+        # we set the int counters here so subsequent arithmetic is safe even
+        # if a caller reads attributes before the next flush.
+        progress = LessonProgress(
+            enrollment_id=enrollment.id,
+            lesson_id=lesson_id,
+            watched_seconds=0,
+            last_position_seconds=0,
+            max_segment_index=-1,
+            play_credit_seconds=0,
+        )
         session.add(progress)
         await session.flush()
     return progress

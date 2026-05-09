@@ -140,7 +140,17 @@ async def update_lesson_progress(
         )
     ).scalar_one_or_none()
     if progress is None:
-        progress = LessonProgress(enrollment_id=enrollment.id, lesson_id=lesson_id)
+        # Set Python-side defaults explicitly — ``mapped_column(default=...)``
+        # only fires at INSERT, leaving the attribute as ``None`` between
+        # ``__init__`` and ``flush``; the arithmetic below would blow up.
+        progress = LessonProgress(
+            enrollment_id=enrollment.id,
+            lesson_id=lesson_id,
+            watched_seconds=0,
+            last_position_seconds=0,
+            max_segment_index=-1,
+            play_credit_seconds=0,
+        )
         session.add(progress)
 
     prev_watched = progress.watched_seconds

@@ -582,6 +582,8 @@ There is **no direct-MP4 endpoint for lessons**. To play a lesson:
      "expires_at": "2026-05-07T14:53:00+00:00",
      "hls_url": "https://api.../lessons/.../hls/master.m3u8?t=...",
      "hls_status": "ready",
+     "total_segments": 124,
+     "segment_seconds": 6,
      "drm": null
    }
    ```
@@ -590,6 +592,10 @@ There is **no direct-MP4 endpoint for lessons**. To play a lesson:
      "video processing" state in the meantime.
    - `hls_status: failed` means packaging blew up — surface a generic error and
      have the instructor re-upload.
+   - `total_segments` × `segment_seconds` is the **authoritative duration** —
+     use it to render the progress bar and label, not `<video>.duration`. For
+     enrolled students the manifest is sliding, so `<video>.duration` will lie
+     (it reflects the currently-buffered window, not the whole lesson).
 
 2. **Hand `hls_url` to the player.** Use **hls.js** on browsers without native
    HLS (Chrome/Firefox); Safari plays it natively via `<video src=...>`.
@@ -621,6 +627,64 @@ There is **no direct-MP4 endpoint for lessons**. To play a lesson:
 
 In the curriculum UI, lessons with `is_free_preview: true` should be playable
 for non-enrolled users — everything else needs the "Enroll" CTA.
+
+#### Anti-seek / max-2x playback (enrolled students only)
+
+For enrolled students the backend enforces "watch the lesson fully, no
+skipping, max 2× speed" purely from segment fetches — there is no JS
+heartbeat the client needs to send.
+
+What the server does on its own:
+
+- The HLS manifest is **sliding**. Only segments up to `max_segment_index +
+  STREAM_LOOKAHEAD_SEGMENTS` (default 8 — the player's normal forward
+  buffer) appear in the playlist. Segments past that don't exist as far
+  as the player is concerned, so `currentTime` cannot advance there.
+- The playlist is served as `EXT-X-PLAYLIST-TYPE:EVENT` (no `ENDLIST` until
+  the window covers the whole lesson). hls.js / Safari handle this natively
+  by re-fetching the manifest periodically.
+- Each segment fetch advances the user's watermark and accumulates "play
+  credit" with each gap clamped at one segment duration. Fetches that would
+  exceed `STREAM_MAX_RATE_MULTIPLIER × wall_clock` are rejected.
+- Lesson completion is server-derived: when the watermark reaches the final
+  segment, the backend marks `lesson_progress.completed_at`, recomputes
+  `Enrollment.progress_percent`, and rolls forward `daily_activity`. A
+  client `PUT /progress {completed: true}` no longer fakes completion —
+  the watermark is the source of truth.
+
+What the client must do:
+
+1. **Hide the seek UI.** Don't pass `controls` to `<video>` — render your
+   own shell. The progress bar is read-only (no pointer events). Render it
+   from `(playback.total_segments, playback.segment_seconds)` and the
+   user's `last_position_seconds` server-side, not from `<video>.duration`.
+2. **Cap the rate selector at 2×.** Offer `1×`, `1.25×`, `1.5×`, `2×`.
+   ```js
+   videoEl.addEventListener("ratechange", () => {
+     if (videoEl.playbackRate > 2) videoEl.playbackRate = 2;
+   });
+   ```
+3. **Clamp seeks.** Even though the manifest physically prevents seeking
+   beyond the buffer window, you still want a clean UX:
+   ```js
+   let lastTime = 0;
+   videoEl.addEventListener("timeupdate", () => { lastTime = videoEl.currentTime; });
+   videoEl.addEventListener("seeking", () => {
+     // Only allow seeking backwards (rewatch) — never forwards past the buffer.
+     if (videoEl.currentTime > lastTime + 0.5) videoEl.currentTime = lastTime;
+   });
+   ```
+4. **Handle the new error codes** (see §5.4): `segment_skip_blocked` (403)
+   and `segment_rate_exceeded` (429) bubble up via `Hls.Events.ERROR` with
+   `data.response.code`. They generally mean the user did something the
+   custom UI should have prevented — log it. `segment_rate_exceeded` is
+   transient and the player will recover by waiting; `segment_skip_blocked`
+   means the manifest is out of sync (force a manifest reload).
+
+Admins, course owners, and free-preview viewers see the full VOD manifest
+and none of these constraints — write your player so it can fall back to
+native `controls` for those callers based on a "is this user the
+instructor/admin" flag.
 
 ### 5.2 Course preview videos (direct MP4)
 
@@ -659,6 +723,8 @@ is a real one, it just works.
 | `missing_playback_token` / `invalid_playback_token` / `playback_token_expired` | Re-mint via `/playback` | |
 | `playback_ip_mismatch` | Network changed | Re-mint |
 | `playback_resource_mismatch` / `playback_scope_mismatch` | Bug — token reused for wrong lesson | Log + re-mint |
+| `segment_skip_blocked` (403) | User tried to seek past the look-ahead window | Force a manifest reload; if it persists, the custom UI failed to clamp seeks |
+| `segment_rate_exceeded` (429) | Player consumed segments faster than `STREAM_MAX_RATE_MULTIPLIER` allows | Transient — wait and the player retries; verify rate is clamped to ≤ 2× |
 | `course_preview_missing` | Instructor hasn't uploaded preview | Hide preview UI |
 | `course_not_published` | Preview only available on published courses | Show "Coming soon" |
 
