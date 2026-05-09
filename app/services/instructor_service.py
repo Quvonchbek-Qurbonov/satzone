@@ -21,6 +21,7 @@ from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError, Va
 from app.core.pagination import PageParams, paginate
 from app.models.catalog import Category, Instructor
 from app.models.course import Course, CourseSection, Lesson
+from app.models.download import LessonAttachment
 from app.models.enrollment import Enrollment
 from app.models.enums import LessonType, PublishStatus, UserRole
 from app.models.user import User
@@ -565,6 +566,55 @@ async def set_lesson_resource(
     await session.commit()
     await session.refresh(lesson)
     return lesson
+
+
+async def create_lesson_attachment(
+    session: AsyncSession,
+    instructor: Instructor,
+    lesson_id: uuid.UUID,
+    *,
+    title: str,
+    file_key: str,
+    file_size_bytes: int | None,
+    mime_type: str | None,
+) -> LessonAttachment:
+    """Persist a new ``LessonAttachment`` for an instructor-owned lesson.
+
+    The caller is responsible for having stored the file via
+    :func:`app.utils.storage.save_upload` and passing the resulting storage
+    key in ``file_key`` — this function only writes the row.
+    """
+    lesson = await get_my_lesson(session, instructor, lesson_id)
+    attachment = LessonAttachment(
+        lesson_id=lesson.id,
+        title=title,
+        file_key=file_key,
+        file_size_bytes=file_size_bytes,
+        mime_type=mime_type,
+    )
+    session.add(attachment)
+    await session.commit()
+    await session.refresh(attachment)
+    return attachment
+
+
+async def delete_lesson_attachment(
+    session: AsyncSession,
+    instructor: Instructor,
+    lesson_id: uuid.UUID,
+    attachment_id: uuid.UUID,
+) -> None:
+    """Remove an attachment owned by the instructor's lesson.
+
+    Cascade on ``user_resource_downloads`` cleans up any per-user
+    "saved for offline" rows pointing at the deleted attachment.
+    """
+    lesson = await get_my_lesson(session, instructor, lesson_id)
+    attachment = await session.get(LessonAttachment, attachment_id)
+    if attachment is None or attachment.lesson_id != lesson.id:
+        raise NotFoundError("Attachment not found")
+    await session.delete(attachment)
+    await session.commit()
 
 
 # ---------- Course aggregates ----------

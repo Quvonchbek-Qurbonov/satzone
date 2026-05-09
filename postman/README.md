@@ -43,6 +43,7 @@ These requests have test scripts that populate environment variables for downstr
 | Admin → Instructors → Create | `admin_instructor_id` |
 | Admin → Programs → Create | `admin_program_id` |
 | Notes → Create note | `note_id` |
+| Instructor → Upload lesson attachment | `attachment_id` |
 | Downloads → List lesson attachments | `attachment_id` |
 | Downloads → Save attachment for offline | `download_id` |
 | Payments → Save card | `payment_method_id` |
@@ -112,6 +113,8 @@ These endpoints require a user with `role=instructor` (or `admin`) — `auth/reg
 5. **Instructor → Create section** → sets `section_id`.
 6. **Instructor → Create lesson** → sets `instructor_lesson_id`.
 7. **Instructor → Upload course thumbnail / lesson video** (multipart, attach a file).
+   - **Upload lesson resource** (multipart `file`) sets `Lesson.resource_url` — one URL per lesson, overwrite-on-upload.
+   - **Upload lesson attachment** (multipart `file` + `title`) creates a `LessonAttachment` row — many per lesson, surfaced in the Downloads UI. Captures `attachment_id` for the matching delete request.
 8. **Instructor → Publish course** (requires ≥1 lesson and a `description`).
 9. **Assessments → Create assessment** → sets `assessment_id`.
 10. **Assessments → Add question (single_choice)** → sets `question_id`, `option_id`.

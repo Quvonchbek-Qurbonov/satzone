@@ -1475,6 +1475,51 @@
           }
         },
         {
+          "name": "Upload lesson attachment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json && json.id) {",
+                  "  pm.environment.set('attachment_id', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "description": "Multi-file companion to 'Upload lesson resource'. Adds one downloadable LessonAttachment row (PDF / slides / code zip / …) for the lesson. Use this when a lesson needs to expose more than one downloadable file. Captures `attachment_id` for the delete + 'Save attachment for offline' flows.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "title",
+                  "value": "Lecture slides",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": "{{base_url}}/instructor/lessons/{{instructor_lesson_id}}/attachments"
+          }
+        },
+        {
+          "name": "Delete lesson attachment",
+          "request": {
+            "method": "DELETE",
+            "description": "Remove a LessonAttachment row owned by the instructor's lesson. CASCADE cleans up any per-user 'saved for offline' rows (`user_resource_downloads`).",
+            "url": "{{base_url}}/instructor/lessons/{{instructor_lesson_id}}/attachments/{{attachment_id}}"
+          }
+        },
+        {
           "name": "List course students",
           "request": {
             "method": "GET",

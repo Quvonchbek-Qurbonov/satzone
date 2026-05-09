@@ -19,6 +19,7 @@ from app.core.exceptions import ForbiddenError
 from app.core.pagination import Page, PageParams, page_params, to_page
 from app.db.deps import DbSession
 from app.models.enums import PublishStatus, UserRole
+from app.schemas.download import LessonAttachmentRead
 from app.schemas.assessment import (
     AssessmentCreate,
     AssessmentInstructorRead,
@@ -439,6 +440,63 @@ async def upload_lesson_resource(
         session, inst, lesson_id, url=key
     )
     return LessonAdminRead.model_validate(lesson)
+
+
+@router.post(
+    "/lessons/{lesson_id}/attachments",
+    response_model=LessonAttachmentRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_lesson_attachment(
+    lesson_id: uuid.UUID,
+    user: CurrentUser,
+    session: DbSession,
+    file: Annotated[UploadFile, File(...)],
+    title: Annotated[str, Form(min_length=1, max_length=200)],
+) -> LessonAttachmentRead:
+    """Add a downloadable attachment (PDF, slides, code zip, …) to a lesson.
+
+    Multi-file companion to ``/lessons/{id}/resource`` — that route
+    overwrites a single ``Lesson.resource_url`` column, this one creates a
+    ``LessonAttachment`` row so a lesson can carry many files. Listed by
+    ``GET /lessons/{id}/attachments`` and surfaced in the My Learning →
+    Download screen.
+    """
+    await _require_instructor_role(user)
+    inst = await instructor_service.require_my_instructor(session, user)
+    lesson = await instructor_service.get_my_lesson(session, inst, lesson_id)
+    key, size = await save_upload(
+        file,
+        kind="document",
+        subdir=f"courses/{lesson.section.course_id}/lessons/{lesson.id}/attachments",
+    )
+    attachment = await instructor_service.create_lesson_attachment(
+        session,
+        inst,
+        lesson_id,
+        title=title,
+        file_key=key,
+        file_size_bytes=size,
+        mime_type=file.content_type,
+    )
+    return LessonAttachmentRead.model_validate(attachment)
+
+
+@router.delete(
+    "/lessons/{lesson_id}/attachments/{attachment_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_lesson_attachment(
+    lesson_id: uuid.UUID,
+    attachment_id: uuid.UUID,
+    user: CurrentUser,
+    session: DbSession,
+) -> None:
+    await _require_instructor_role(user)
+    inst = await instructor_service.require_my_instructor(session, user)
+    await instructor_service.delete_lesson_attachment(
+        session, inst, lesson_id, attachment_id
+    )
 
 
 # ---------- Students / analytics ----------
