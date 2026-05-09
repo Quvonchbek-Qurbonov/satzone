@@ -287,57 +287,63 @@ def _render_manifest(
     is dropped so the player keeps polling for new segments as the user's
     watermark advances. When ``None`` (privileged callers), the original
     full playlist is preserved.
+
+    Header order matters in HLS — ``#EXTM3U`` must be the very first line.
+    The only line we buffer is the most recent ``#EXTINF`` so we can drop
+    it together with its segment URI when sliding skips that segment.
     """
-    out: list[str] = []
-    pending_tags: list[str] = []
     sliding = ceiling is not None
-    saw_last = True  # if not sliding we always close with ENDLIST as written
+    out: list[str] = []
+    pending_extinf: str | None = None
+    saw_truncation = False
 
     for line in manifest.splitlines():
         stripped = line.strip()
-        if not stripped:
-            pending_tags.append(line)
+
+        if stripped.startswith("#EXTINF"):
+            pending_extinf = line
             continue
+
         if stripped.startswith("#EXT-X-KEY"):
-            rewritten = re.sub(r'URI="[^"]+"', f'URI="{key_url}"', line)
-            out.append(rewritten)
+            out.append(re.sub(r'URI="[^"]+"', f'URI="{key_url}"', line))
             continue
+
         if stripped.startswith("#EXT-X-PLAYLIST-TYPE"):
             out.append("#EXT-X-PLAYLIST-TYPE:EVENT" if sliding else line)
             continue
+
         if stripped.startswith("#EXT-X-ENDLIST"):
-            # Only emit ENDLIST when the window covers the whole video.
-            if not sliding or saw_last:
+            # Drop ENDLIST when we truncated the playlist so the player
+            # treats it as live and keeps polling for more segments.
+            if not (sliding and saw_truncation):
                 out.append(line)
             continue
-        if stripped.startswith("#"):
-            # Per-segment tags (#EXTINF, #EXT-X-DISCONTINUITY, …) buffer
-            # until we know whether to emit their accompanying segment.
-            pending_tags.append(line)
+
+        if stripped.startswith("#") or not stripped:
+            # Other header tags / blank lines — preserve order.
+            out.append(line)
             continue
 
         # Segment URI line.
         seg_idx = _seg_index_from_name(stripped)
         if seg_idx is None:
-            # Unrecognised — pass through with its tags.
-            out.extend(pending_tags)
+            if pending_extinf is not None:
+                out.append(pending_extinf)
+                pending_extinf = None
             out.append(line)
-            pending_tags = []
             continue
-        if sliding and seg_idx > ceiling:
-            # Skip this segment block entirely; keep saw_last=False so we
-            # also drop the trailing ENDLIST.
-            pending_tags = []
-            saw_last = False
-            continue
-        out.extend(pending_tags)
-        out.append(seg_url(stripped))
-        pending_tags = []
 
-    # Anything after the last segment (e.g. blank lines we stashed) gets
-    # appended only if we're not in a sliding-and-truncated state.
-    if not sliding or saw_last:
-        out.extend(pending_tags)
+        if sliding and seg_idx > ceiling:
+            # Drop this segment and the EXTINF that introduced it.
+            pending_extinf = None
+            saw_truncation = True
+            continue
+
+        if pending_extinf is not None:
+            out.append(pending_extinf)
+            pending_extinf = None
+        out.append(seg_url(stripped))
+
     return "\n".join(out) + "\n"
 
 
