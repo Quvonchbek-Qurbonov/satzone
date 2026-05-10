@@ -305,12 +305,8 @@
           "auth"
         ],
         "summary": "Submit Phone",
+        "description": "Stash a phone number + freshly-minted code in Redis and email it.\n\nRe-callable until the phone is verified, so the user can correct a typo.\nOnce ``is_phone_verified`` is true the endpoint refuses with\n``phone_already_verified``. The phone is **not** persisted to ``users``\nuntil ``/auth/verify-phone`` succeeds.",
         "operationId": "submit_phone_api_v1_auth_phone_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -342,7 +338,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/auth/verify-phone": {
@@ -352,11 +353,6 @@
         ],
         "summary": "Verify Phone",
         "operationId": "verify_phone_api_v1_auth_verify_phone_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -388,7 +384,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/auth/resend-phone-code": {
@@ -398,11 +399,6 @@
         ],
         "summary": "Resend Phone Code",
         "operationId": "resend_phone_code_api_v1_auth_resend_phone_code_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -414,7 +410,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/auth/password/forgot": {
@@ -505,6 +506,7 @@
           "auth"
         ],
         "summary": "Me",
+        "description": "Current user — accessible even before phone is verified so the\nfrontend can read ``is_phone_verified`` and route into the verify-phone\nscreen.",
         "operationId": "me_api_v1_auth_me_get",
         "responses": {
           "200": {
@@ -632,6 +634,52 @@
         ]
       }
     },
+    "/api/v1/me/password": {
+      "put": {
+        "tags": [
+          "account"
+        ],
+        "summary": "Change Password",
+        "operationId": "change_password_api_v1_me_password_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me/avatar": {
       "post": {
         "tags": [
@@ -686,52 +734,6 @@
         "responses": {
           "204": {
             "description": "Successful Response"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/me/password": {
-      "put": {
-        "tags": [
-          "account"
-        ],
-        "summary": "Change Password",
-        "operationId": "change_password_api_v1_me_password_put",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PasswordChange"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Message"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
         },
         "security": [
@@ -3785,7 +3787,7 @@
           "instructor"
         ],
         "summary": "Upload Lesson Attachment",
-        "description": "Add a downloadable attachment (PDF, slides, code zip, …) to a lesson. Multi-file companion to /lessons/{id}/resource — that route overwrites a single Lesson.resource_url column, this one creates a LessonAttachment row so a lesson can carry many files.",
+        "description": "Add a downloadable attachment (PDF, slides, code zip, …) to a lesson.\n\nMulti-file companion to ``/lessons/{id}/resource`` — that route\noverwrites a single ``Lesson.resource_url`` column, this one creates a\n``LessonAttachment`` row so a lesson can carry many files. Listed by\n``GET /lessons/{id}/attachments`` and surfaced in the My Learning →\nDownload screen.",
         "operationId": "upload_lesson_attachment_api_v1_instructor_lessons__lesson_id__attachments_post",
         "security": [
           {
@@ -4448,6 +4450,209 @@
         }
       }
     },
+    "/api/v1/instructor/questions/{question_id}/image": {
+      "post": {
+        "tags": [
+          "instructor"
+        ],
+        "summary": "Upload Question Image",
+        "description": "Attach an image (diagram, photo, …) to a quiz question.",
+        "operationId": "upload_question_image_api_v1_instructor_questions__question_id__image_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "question_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Question Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_question_image_api_v1_instructor_questions__question_id__image_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionInstructorRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "instructor"
+        ],
+        "summary": "Clear Question Image",
+        "operationId": "clear_question_image_api_v1_instructor_questions__question_id__image_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "question_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Question Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionInstructorRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/instructor/options/{option_id}/image": {
+      "post": {
+        "tags": [
+          "instructor"
+        ],
+        "summary": "Upload Option Image",
+        "description": "Attach an image to a single answer option (e.g. picture-multiple-\nchoice). Returns the resolved URL plus uploaded size.",
+        "operationId": "upload_option_image_api_v1_instructor_options__option_id__image_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "option_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Option Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_option_image_api_v1_instructor_options__option_id__image_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "instructor"
+        ],
+        "summary": "Clear Option Image",
+        "operationId": "clear_option_image_api_v1_instructor_options__option_id__image_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "option_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Option Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/instructor/assessments/{assessment_id}/submissions": {
       "get": {
         "tags": [
@@ -4677,6 +4882,104 @@
         }
       }
     },
+    "/api/v1/sections/{section_id}/quiz": {
+      "get": {
+        "tags": [
+          "assessments"
+        ],
+        "summary": "Get the section quiz",
+        "description": "Returns the published end-of-section quiz the learner must pass to advance. 404 with ``section_quiz_not_found`` if the instructor hasn't published one for this section.",
+        "operationId": "get_section_quiz_api_v1_sections__section_id__quiz_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "section_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Section Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssessmentStudentRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sections/{section_id}/quiz/status": {
+      "get": {
+        "tags": [
+          "assessments"
+        ],
+        "summary": "Section quiz pass/attempts status",
+        "description": "Lightweight progress check. The UI calls this to decide whether to unlock the next section. ``required=false`` means no gating quiz exists for the section.",
+        "operationId": "get_section_quiz_status_api_v1_sections__section_id__quiz_status_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "section_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Section Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SectionQuizStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/lessons/{lesson_id}/playback": {
       "get": {
         "tags": [
@@ -4831,7 +5134,7 @@
           "streaming"
         ],
         "summary": "Lesson Hls Master",
-        "description": "Return the per-lesson HLS master playlist with rewritten signed URIs.\n\nThe packager writes manifests with relative URIs; we rewrite each\n``EXT-X-KEY`` and segment line to absolute paths under our domain that\ncarry the same ``?t=`` token, so the player can fetch them without\nreaching back into S3 directly.",
+        "description": "Return the per-lesson HLS master playlist with rewritten signed URIs.\n\nEnrolled students see a *sliding* manifest exposing only segments up to\n``max_segment_index + LOOKAHEAD`` — they can't see (and so can't seek\nto) anything beyond that window. Admins, course owners, and free-preview\nviewers get the full VOD manifest unchanged.\n\nThe packager writes manifests with relative URIs; we rewrite each\n``EXT-X-KEY`` and segment line to absolute paths under our domain that\ncarry the same ``?t=`` token, so the player can fetch them without\nreaching back into S3 directly.",
         "operationId": "lesson_hls_master_api_v1_lessons__lesson_id__hls_master_m3u8_get",
         "parameters": [
           {
@@ -5017,6 +5320,1020 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/notes": {
+      "post": {
+        "tags": [
+          "my-learnings"
+        ],
+        "summary": "Create Note",
+        "operationId": "create_note_api_v1_me_notes_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LessonNoteCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LessonNoteRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "my-learnings"
+        ],
+        "summary": "List Notes",
+        "operationId": "list_notes_api_v1_me_notes_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lesson_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lesson Id"
+            }
+          },
+          {
+            "name": "course_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Course Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LessonNoteRead"
+                  },
+                  "title": "Response List Notes Api V1 Me Notes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/notes/{note_id}": {
+      "patch": {
+        "tags": [
+          "my-learnings"
+        ],
+        "summary": "Update Note",
+        "operationId": "update_note_api_v1_me_notes__note_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "note_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Note Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LessonNoteUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LessonNoteRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "my-learnings"
+        ],
+        "summary": "Delete Note",
+        "operationId": "delete_note_api_v1_me_notes__note_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "note_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Note Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/lessons/{lesson_id}/attachments": {
+      "get": {
+        "tags": [
+          "my-learnings"
+        ],
+        "summary": "List Lesson Attachments",
+        "operationId": "list_lesson_attachments_api_v1_lessons__lesson_id__attachments_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lesson_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Lesson Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LessonAttachmentRead"
+                  },
+                  "title": "Response List Lesson Attachments Api V1 Lessons  Lesson Id  Attachments Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/downloads": {
+      "get": {
+        "tags": [
+          "my-learnings"
+        ],
+        "summary": "List My Downloads",
+        "operationId": "list_my_downloads_api_v1_me_downloads_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DownloadRead"
+                  },
+                  "type": "array",
+                  "title": "Response List My Downloads Api V1 Me Downloads Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "my-learnings"
+        ],
+        "summary": "Save Download",
+        "operationId": "save_download_api_v1_me_downloads_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DownloadCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/downloads/{download_id}": {
+      "delete": {
+        "tags": [
+          "my-learnings"
+        ],
+        "summary": "Delete Download",
+        "operationId": "delete_download_api_v1_me_downloads__download_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "download_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Download Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/activity/weekly": {
+      "get": {
+        "tags": [
+          "account"
+        ],
+        "summary": "Get Weekly Activity",
+        "operationId": "get_weekly_activity_api_v1_me_activity_weekly_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyActivityRead"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/activity/weekly-goal": {
+      "put": {
+        "tags": [
+          "account"
+        ],
+        "summary": "Set Weekly Goal",
+        "operationId": "set_weekly_goal_api_v1_me_activity_weekly_goal_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WeeklyGoalUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyActivityRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/payment-methods": {
+      "get": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "List Methods",
+        "operationId": "list_methods_api_v1_me_payment_methods_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PaymentMethodRead"
+                  },
+                  "type": "array",
+                  "title": "Response List Methods Api V1 Me Payment Methods Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "Create Method",
+        "operationId": "create_method_api_v1_me_payment_methods_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentMethodCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentMethodRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/payment-methods/{pm_id}/verify/start": {
+      "post": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "Start Verify",
+        "operationId": "start_verify_api_v1_me_payment_methods__pm_id__verify_start_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "pm_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Pm Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/payment-methods/{pm_id}/verify/confirm": {
+      "post": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "Confirm Verify",
+        "operationId": "confirm_verify_api_v1_me_payment_methods__pm_id__verify_confirm_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "pm_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Pm Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentMethodVerifyConfirm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentMethodRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/payment-methods/{pm_id}": {
+      "delete": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "Delete Method",
+        "operationId": "delete_method_api_v1_me_payment_methods__pm_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "pm_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Pm Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orders": {
+      "post": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "Create Order",
+        "operationId": "create_order_api_v1_orders_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/orders/{order_id}": {
+      "get": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "Get Order",
+        "operationId": "get_order_api_v1_orders__order_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "order_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Order Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "Cancel Order",
+        "operationId": "cancel_order_api_v1_orders__order_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "order_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Order Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orders/{order_id}/pay/card": {
+      "post": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "Pay Card",
+        "operationId": "pay_card_api_v1_orders__order_id__pay_card_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "order_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Order Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayWithCard"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orders/{order_id}/pay/payme": {
+      "post": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "Pay Payme",
+        "operationId": "pay_payme_api_v1_orders__order_id__pay_payme_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "order_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Order Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayWithPayme"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/orders": {
+      "get": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "List My Orders",
+        "operationId": "list_my_orders_api_v1_me_orders_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OrderRead"
+                  },
+                  "type": "array",
+                  "title": "Response List My Orders Api V1 Me Orders Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/payments/payme/callback": {
+      "post": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "Payme Callback",
+        "operationId": "payme_callback_api_v1_payments_payme_callback_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Payme Callback Api V1 Payments Payme Callback Post"
+                }
               }
             }
           },
@@ -8995,6 +10312,11 @@
             "type": "boolean",
             "title": "Show Correct Answers",
             "default": true
+          },
+          "is_section_quiz": {
+            "type": "boolean",
+            "title": "Is Section Quiz",
+            "default": false
           }
         },
         "type": "object",
@@ -9087,6 +10409,10 @@
             "type": "boolean",
             "title": "Show Correct Answers"
           },
+          "is_section_quiz": {
+            "type": "boolean",
+            "title": "Is Section Quiz"
+          },
           "status": {
             "$ref": "#/components/schemas/AssessmentStatus"
           },
@@ -9106,6 +10432,7 @@
           "pass_percent",
           "shuffle_questions",
           "show_correct_answers",
+          "is_section_quiz",
           "status"
         ],
         "title": "AssessmentInstructorRead"
@@ -9194,6 +10521,11 @@
               }
             ],
             "title": "Max Attempts"
+          },
+          "is_section_quiz": {
+            "type": "boolean",
+            "title": "Is Section Quiz",
+            "default": false
           },
           "questions": {
             "items": {
@@ -9370,6 +10702,11 @@
           "status": {
             "$ref": "#/components/schemas/AssessmentStatus"
           },
+          "is_section_quiz": {
+            "type": "boolean",
+            "title": "Is Section Quiz",
+            "default": false
+          },
           "questions_count": {
             "type": "integer",
             "title": "Questions Count",
@@ -9500,6 +10837,17 @@
             ],
             "title": "Show Correct Answers"
           },
+          "is_section_quiz": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Section Quiz"
+          },
           "status": {
             "anyOf": [
               {
@@ -9513,6 +10861,30 @@
         },
         "type": "object",
         "title": "AssessmentUpdate"
+      },
+      "AvatarUploadResponse": {
+        "properties": {
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "title": "Size Bytes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "size_bytes"
+        ],
+        "title": "AvatarUploadResponse"
       },
       "Body_upload_category_icon_api_v1_admin_categories__category_id__icon_post": {
         "properties": {
@@ -9570,6 +10942,27 @@
         ],
         "title": "Body_upload_instructor_avatar_api_v1_admin_instructors__instructor_id__avatar_post"
       },
+      "Body_upload_lesson_attachment_api_v1_instructor_lessons__lesson_id__attachments_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file",
+          "title"
+        ],
+        "title": "Body_upload_lesson_attachment_api_v1_instructor_lessons__lesson_id__attachments_post"
+      },
       "Body_upload_lesson_resource_api_v1_instructor_lessons__lesson_id__resource_post": {
         "properties": {
           "file": {
@@ -9583,28 +10976,6 @@
           "file"
         ],
         "title": "Body_upload_lesson_resource_api_v1_instructor_lessons__lesson_id__resource_post"
-      },
-      "Body_upload_lesson_attachment_api_v1_instructor_lessons__lesson_id__attachments_post": {
-        "properties": {
-          "file": {
-            "type": "string",
-            "contentMediaType": "application/octet-stream",
-            "title": "File"
-          },
-          "title": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200,
-            "title": "Title",
-            "description": "Display name for this attachment, e.g. 'Lecture slides'."
-          }
-        },
-        "type": "object",
-        "required": [
-          "file",
-          "title"
-        ],
-        "title": "Body_upload_lesson_attachment_api_v1_instructor_lessons__lesson_id__attachments_post"
       },
       "Body_upload_lesson_video_api_v1_instructor_lessons__lesson_id__video_post": {
         "properties": {
@@ -9646,6 +11017,34 @@
         ],
         "title": "Body_upload_my_avatar_api_v1_instructor_me_profile_avatar_post"
       },
+      "Body_upload_my_avatar_api_v1_me_avatar_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_my_avatar_api_v1_me_avatar_post"
+      },
+      "Body_upload_option_image_api_v1_instructor_options__option_id__image_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_option_image_api_v1_instructor_options__option_id__image_post"
+      },
       "Body_upload_program_thumbnail_api_v1_admin_programs__program_id__thumbnail_post": {
         "properties": {
           "file": {
@@ -9659,6 +11058,31 @@
           "file"
         ],
         "title": "Body_upload_program_thumbnail_api_v1_admin_programs__program_id__thumbnail_post"
+      },
+      "Body_upload_question_image_api_v1_instructor_questions__question_id__image_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_question_image_api_v1_instructor_questions__question_id__image_post"
+      },
+      "CardBrand": {
+        "type": "string",
+        "enum": [
+          "uzcard",
+          "humo",
+          "visa",
+          "mastercard",
+          "unknown"
+        ],
+        "title": "CardBrand"
       },
       "CategoryCreate": {
         "properties": {
@@ -10769,6 +12193,68 @@
         ],
         "title": "DRMInit"
       },
+      "DailyActivityRead": {
+        "properties": {
+          "activity_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Activity Date"
+          },
+          "minutes_learned": {
+            "type": "integer",
+            "title": "Minutes Learned"
+          },
+          "lessons_completed": {
+            "type": "integer",
+            "title": "Lessons Completed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "activity_date",
+          "minutes_learned",
+          "lessons_completed"
+        ],
+        "title": "DailyActivityRead"
+      },
+      "DownloadCreate": {
+        "properties": {
+          "attachment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Attachment Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "attachment_id"
+        ],
+        "title": "DownloadCreate"
+      },
+      "DownloadRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "attachment": {
+            "$ref": "#/components/schemas/LessonAttachmentRead"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "attachment",
+          "created_at"
+        ],
+        "title": "DownloadRead"
+      },
       "EmailVerifyRequest": {
         "properties": {
           "token": {
@@ -11854,6 +13340,71 @@
         ],
         "title": "LessonAdminRead"
       },
+      "LessonAttachmentRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "lesson_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Lesson Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "file_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Key"
+          },
+          "file_size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Size Bytes"
+          },
+          "mime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mime Type"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "lesson_id",
+          "title",
+          "file_key",
+          "created_at"
+        ],
+        "title": "LessonAttachmentRead"
+      },
       "LessonCreate": {
         "properties": {
           "title": {
@@ -11942,6 +13493,147 @@
         ],
         "title": "LessonCreate"
       },
+      "LessonNoteCreate": {
+        "properties": {
+          "lesson_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Lesson Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 10000,
+            "minLength": 1,
+            "title": "Body"
+          },
+          "timestamp_seconds": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Timestamp Seconds",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "lesson_id",
+          "body"
+        ],
+        "title": "LessonNoteCreate"
+      },
+      "LessonNoteRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "lesson_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Lesson Id"
+          },
+          "course_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Course Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "body": {
+            "type": "string",
+            "title": "Body"
+          },
+          "timestamp_seconds": {
+            "type": "integer",
+            "title": "Timestamp Seconds"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "lesson_id",
+          "course_id",
+          "body",
+          "timestamp_seconds",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "LessonNoteRead"
+      },
+      "LessonNoteUpdate": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "body": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10000,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "timestamp_seconds": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp Seconds"
+          }
+        },
+        "type": "object",
+        "title": "LessonNoteUpdate"
+      },
       "LessonPlaybackResponse": {
         "properties": {
           "lesson_id": {
@@ -11984,8 +13676,7 @@
                 "type": "null"
               }
             ],
-            "title": "Total Segments",
-            "description": "Total HLS segments in the lesson — published so the player can render a static, non-interactive progress bar."
+            "title": "Total Segments"
           },
           "segment_seconds": {
             "anyOf": [
@@ -11996,8 +13687,7 @@
                 "type": "null"
               }
             ],
-            "title": "Segment Seconds",
-            "description": "Authoritative segment duration; combine with total_segments to show total length without trusting <video>.duration."
+            "title": "Segment Seconds"
           },
           "drm": {
             "anyOf": [
@@ -12621,6 +14311,17 @@
             "title": "Order",
             "default": 0
           },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
           "is_correct": {
             "type": "boolean",
             "title": "Is Correct",
@@ -12649,6 +14350,17 @@
             "type": "integer",
             "title": "Order",
             "default": 0
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
           }
         },
         "type": "object",
@@ -12681,6 +14393,17 @@
               }
             ],
             "title": "Order"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
           }
         },
         "type": "object",
@@ -12688,6 +14411,158 @@
           "text"
         ],
         "title": "OptionWrite"
+      },
+      "OrderCreate": {
+        "properties": {
+          "item_kind": {
+            "$ref": "#/components/schemas/OrderItemKind"
+          },
+          "course_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Id"
+          },
+          "program_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Program Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "item_kind"
+        ],
+        "title": "OrderCreate"
+      },
+      "OrderItemKind": {
+        "type": "string",
+        "enum": [
+          "course",
+          "program"
+        ],
+        "title": "OrderItemKind"
+      },
+      "OrderRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "item_kind": {
+            "$ref": "#/components/schemas/OrderItemKind"
+          },
+          "course_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Id"
+          },
+          "program_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Program Id"
+          },
+          "amount_cents": {
+            "type": "integer",
+            "title": "Amount Cents"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OrderStatus"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaymentProvider"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "paid_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paid At"
+          },
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "item_kind",
+          "amount_cents",
+          "currency",
+          "status",
+          "created_at"
+        ],
+        "title": "OrderRead"
+      },
+      "OrderStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "processing",
+          "paid",
+          "cancelled",
+          "refunded",
+          "failed"
+        ],
+        "title": "OrderStatus"
       },
       "Page_AdminCertificateRead_": {
         "properties": {
@@ -13395,6 +15270,244 @@
         ],
         "title": "PasswordResetRequest"
       },
+      "PayResponse": {
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Order Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OrderStatus"
+          },
+          "checkout_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkout Url"
+          },
+          "transaction_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transaction Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "order_id",
+          "status"
+        ],
+        "title": "PayResponse"
+      },
+      "PayWithCard": {
+        "properties": {
+          "payment_method_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Payment Method Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "payment_method_id"
+        ],
+        "title": "PayWithCard"
+      },
+      "PayWithPayme": {
+        "properties": {
+          "return_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Url",
+            "description": "Optional URL Payme redirects the user back to after payment."
+          }
+        },
+        "type": "object",
+        "title": "PayWithPayme",
+        "description": "Returns a Payme checkout URL for the frontend to redirect to."
+      },
+      "PaymentMethodCreate": {
+        "properties": {
+          "card_number": {
+            "type": "string",
+            "maxLength": 23,
+            "minLength": 12,
+            "title": "Card Number"
+          },
+          "expires_month": {
+            "type": "integer",
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Expires Month"
+          },
+          "expires_year": {
+            "type": "integer",
+            "maximum": 2099.0,
+            "minimum": 2025.0,
+            "title": "Expires Year"
+          },
+          "cardholder_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cardholder Name"
+          },
+          "set_default": {
+            "type": "boolean",
+            "title": "Set Default",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "card_number",
+          "expires_month",
+          "expires_year"
+        ],
+        "title": "PaymentMethodCreate",
+        "description": "Save a new card.\n\nThe PAN never persists — we forward it to Payme ``cards.create``, store\nthe returned token + last 4. After this call the verification flow is:\n``POST /me/payment-methods/{id}/verify/start`` → ``.../verify/confirm``."
+      },
+      "PaymentMethodRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/PaymentProvider"
+          },
+          "brand": {
+            "$ref": "#/components/schemas/CardBrand"
+          },
+          "last4": {
+            "type": "string",
+            "title": "Last4"
+          },
+          "expires_month": {
+            "type": "integer",
+            "title": "Expires Month"
+          },
+          "expires_year": {
+            "type": "integer",
+            "title": "Expires Year"
+          },
+          "cardholder_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cardholder Name"
+          },
+          "is_default": {
+            "type": "boolean",
+            "title": "Is Default"
+          },
+          "is_verified": {
+            "type": "boolean",
+            "title": "Is Verified"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "provider",
+          "brand",
+          "last4",
+          "expires_month",
+          "expires_year",
+          "is_default",
+          "is_verified",
+          "created_at"
+        ],
+        "title": "PaymentMethodRead"
+      },
+      "PaymentMethodVerifyConfirm": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 12,
+            "minLength": 3,
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "PaymentMethodVerifyConfirm"
+      },
+      "PaymentProvider": {
+        "type": "string",
+        "enum": [
+          "payme",
+          "card"
+        ],
+        "title": "PaymentProvider"
+      },
+      "PhoneSubmitRequest": {
+        "properties": {
+          "phone_number": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 8,
+            "title": "Phone Number"
+          }
+        },
+        "type": "object",
+        "required": [
+          "phone_number"
+        ],
+        "title": "PhoneSubmitRequest"
+      },
+      "PhoneVerifyRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 10,
+            "minLength": 4,
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "PhoneVerifyRequest"
+      },
       "PreviewPlaybackResponse": {
         "properties": {
           "course_id": {
@@ -14042,6 +16155,17 @@
             ],
             "title": "Order"
           },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
           "options": {
             "anyOf": [
               {
@@ -14111,6 +16235,17 @@
             "type": "integer",
             "title": "Order"
           },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
           "expected_answers": {
             "anyOf": [
               {
@@ -14164,6 +16299,17 @@
           "order": {
             "type": "integer",
             "title": "Order"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
           },
           "options": {
             "items": {
@@ -14242,6 +16388,17 @@
             ],
             "title": "Order"
           },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
           "options": {
             "anyOf": [
               {
@@ -14316,37 +16473,6 @@
           "password"
         ],
         "title": "RegisterRequest"
-      },
-      "PhoneSubmitRequest": {
-        "properties": {
-          "phone_number": {
-            "type": "string",
-            "maxLength": 32,
-            "minLength": 8,
-            "title": "Phone Number",
-            "description": "E.164 format, e.g. +14155552671"
-          }
-        },
-        "type": "object",
-        "required": [
-          "phone_number"
-        ],
-        "title": "PhoneSubmitRequest"
-      },
-      "PhoneVerifyRequest": {
-        "properties": {
-          "code": {
-            "type": "string",
-            "maxLength": 10,
-            "minLength": 4,
-            "title": "Code"
-          }
-        },
-        "type": "object",
-        "required": [
-          "code"
-        ],
-        "title": "PhoneVerifyRequest"
       },
       "ReorderItem": {
         "properties": {
@@ -14559,6 +16685,92 @@
           "title"
         ],
         "title": "SectionCreate"
+      },
+      "SectionQuizStatus": {
+        "properties": {
+          "section_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Section Id"
+          },
+          "assessment_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessment Id"
+          },
+          "required": {
+            "type": "boolean",
+            "title": "Required",
+            "default": false
+          },
+          "passed": {
+            "type": "boolean",
+            "title": "Passed",
+            "default": false
+          },
+          "attempts": {
+            "type": "integer",
+            "title": "Attempts",
+            "default": 0
+          },
+          "last_score_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Score Percent"
+          },
+          "best_score_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Score Percent"
+          },
+          "pass_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pass Percent"
+          },
+          "max_attempts": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Attempts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "section_id"
+        ],
+        "title": "SectionQuizStatus",
+        "description": "Snapshot of a learner's progress against a section quiz.\n\n``passed`` is the gating signal — until it flips to ``True`` the streaming\nlayer and progress endpoints will refuse lessons in later sections."
       },
       "SectionRead": {
         "properties": {
@@ -14935,44 +17147,6 @@
         "type": "object",
         "title": "UserUpdate"
       },
-      "AvatarUploadResponse": {
-        "properties": {
-          "avatar_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Avatar Url"
-          },
-          "size_bytes": {
-            "type": "integer",
-            "title": "Size Bytes"
-          }
-        },
-        "type": "object",
-        "required": [
-          "size_bytes"
-        ],
-        "title": "AvatarUploadResponse"
-      },
-      "Body_upload_my_avatar_api_v1_me_avatar_post": {
-        "properties": {
-          "file": {
-            "type": "string",
-            "contentMediaType": "application/octet-stream",
-            "title": "File"
-          }
-        },
-        "type": "object",
-        "required": [
-          "file"
-        ],
-        "title": "Body_upload_my_avatar_api_v1_me_avatar_post"
-      },
       "ValidationError": {
         "properties": {
           "loc": {
@@ -15012,6 +17186,54 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WeeklyActivityRead": {
+        "properties": {
+          "weekly_goal_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekly Goal Minutes"
+          },
+          "minutes_learned_total": {
+            "type": "integer",
+            "title": "Minutes Learned Total"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/DailyActivityRead"
+            },
+            "type": "array",
+            "title": "Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "minutes_learned_total",
+          "days"
+        ],
+        "title": "WeeklyActivityRead",
+        "description": "Last 7 days, oldest-first. Missing days show as zero rows."
+      },
+      "WeeklyGoalUpdate": {
+        "properties": {
+          "weekly_goal_minutes": {
+            "type": "integer",
+            "maximum": 10080.0,
+            "minimum": 0.0,
+            "title": "Weekly Goal Minutes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "weekly_goal_minutes"
+        ],
+        "title": "WeeklyGoalUpdate"
       },
       "WishlistItemRead": {
         "properties": {

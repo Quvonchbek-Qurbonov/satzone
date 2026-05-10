@@ -78,9 +78,40 @@ uvicorn app.main:app --reload
 | Degree (Programs)  | `GET /programs`, `GET /programs/{slug}`, `POST /programs/{id}/enroll`, `GET /me/programs`       |
 | Account & Settings | `GET/PATCH/DELETE /me`, `POST/DELETE /me/avatar` (multipart image upload), `PUT /me/password`, `GET/PATCH /me/preferences/notifications`, `GET/DELETE /me/sessions`, `GET /me/activity/weekly`, `PUT /me/activity/weekly-goal` |
 | Notes              | `POST /me/notes`, `GET /me/notes` (filter `lesson_id`/`course_id`), `PATCH/DELETE /me/notes/{id}` |
+| Section quizzes    | `GET /sections/{id}/quiz` (fetch end-of-section quiz), `GET /sections/{id}/quiz/status` (passed / attempts / score), `POST /assessments/{id}/submissions` (existing submit endpoint), instructor authoring via `POST /instructor/courses/{course_id}/assessments` (with `is_section_quiz=true`), `POST /instructor/questions/{id}/image`, `POST /instructor/options/{id}/image` |
 | Downloads          | `GET /lessons/{id}/attachments`, `POST/GET /me/downloads`, `DELETE /me/downloads/{id}` (resource files only — videos stay HLS-streamed) |
 | Payments           | `GET/POST /me/payment-methods`, `POST /me/payment-methods/{id}/verify/start`, `POST /me/payment-methods/{id}/verify/confirm`, `DELETE /me/payment-methods/{id}`, `POST /orders`, `GET /orders/{id}`, `DELETE /orders/{id}`, `POST /orders/{id}/pay/card`, `POST /orders/{id}/pay/payme`, `GET /me/orders`, `POST /payments/payme/callback` (Payme JSON-RPC) |
 | Admin              | `/admin/users`, `/admin/categories`, `/admin/instructors`, `/admin/courses`, `/admin/programs` (+ `/programs/{id}/courses` linking), `/admin/reviews`, `/admin/enrollments`, `/admin/certificates` — full CRUD + lifecycle (`publish`/`unpublish`/`archive`) + media uploads. All routes gated by `role=admin`. |
+
+## Section quizzes
+
+Each course section can carry one **section quiz** that gates progression
+into the next section. Until the learner passes it, the streaming layer
+returns `403 section_quiz_not_passed` for any lesson in a later section
+and the lesson-progress endpoint refuses to record progress.
+
+* **Authoring.** Instructors create the quiz with
+  `POST /instructor/courses/{course_id}/assessments` setting `section_id`
+  and `is_section_quiz=true`, then publish via `PATCH /instructor/assessments/{id}`
+  with `status=published`. Only one section quiz per section is allowed
+  (enforced by a partial unique index — duplicate creates return `409
+  section_quiz_exists`).
+* **Question formats.** `single_choice`, `multi_choice`, `true_false`,
+  `short_answer`. Single- and multi-choice questions support inline images
+  via `POST /instructor/questions/{id}/image` (multipart) and per-option
+  images via `POST /instructor/options/{id}/image`. Both also accept an
+  `image_url` field at create/update time when the asset already lives at
+  an external URL.
+* **Taking the quiz.** Students fetch via `GET /sections/{id}/quiz` and
+  submit via `POST /assessments/{id}/submissions` (the existing student
+  endpoint). Pass/fail is computed from the assessment's `pass_percent`
+  and reflected immediately in `GET /sections/{id}/quiz/status`, which
+  the UI reads to unlock the next-section CTA.
+* **Gating.** The check is enforced server-side in two places:
+  `authorize_lesson_playback` (so HLS playback tokens are refused) and
+  `update_lesson_progress` (so progress on a later section can't be
+  marked complete by bypassing the manifest). Course owners and admins
+  are exempt for authoring/QA.
 
 ## Video streaming protection
 

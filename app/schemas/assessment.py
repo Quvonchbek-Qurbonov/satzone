@@ -16,12 +16,14 @@ class OptionWrite(ORMModel):
     text: str = Field(min_length=1)
     is_correct: bool = False
     order: int | None = Field(default=None, ge=0)
+    image_url: str | None = None
 
 
 class OptionRead(ORMModel):
     id: uuid.UUID
     text: str
     order: int = 0
+    image_url: str | None = None
     # is_correct is omitted for student-facing reads; included for instructors.
 
 
@@ -38,6 +40,7 @@ class QuestionCreate(ORMModel):
     explanation: str | None = None
     points: int = Field(default=1, ge=0)
     order: int | None = Field(default=None, ge=0)
+    image_url: str | None = None
     options: list[OptionWrite] | None = None
     expected_answers: list[str] | None = None
 
@@ -62,6 +65,7 @@ class QuestionUpdate(ORMModel):
     explanation: str | None = None
     points: int | None = Field(default=None, ge=0)
     order: int | None = Field(default=None, ge=0)
+    image_url: str | None = None
     options: list[OptionWrite] | None = None
     expected_answers: list[str] | None = None
 
@@ -73,6 +77,7 @@ class QuestionInstructorRead(ORMModel):
     explanation: str | None = None
     points: int
     order: int
+    image_url: str | None = None
     expected_answers: list[str] | None = None
     options: list[OptionInstructorRead] = Field(default_factory=list)
 
@@ -83,6 +88,7 @@ class QuestionStudentRead(ORMModel):
     prompt: str
     points: int
     order: int
+    image_url: str | None = None
     options: list[OptionRead] = Field(default_factory=list)
 
 
@@ -99,6 +105,7 @@ class AssessmentCreate(ORMModel):
     max_attempts: int | None = Field(default=None, ge=1)
     shuffle_questions: bool = False
     show_correct_answers: bool = True
+    is_section_quiz: bool = False
 
 
 class AssessmentUpdate(ORMModel):
@@ -111,6 +118,7 @@ class AssessmentUpdate(ORMModel):
     max_attempts: int | None = Field(default=None, ge=1)
     shuffle_questions: bool | None = None
     show_correct_answers: bool | None = None
+    is_section_quiz: bool | None = None
     status: AssessmentStatus | None = None
 
 
@@ -124,6 +132,7 @@ class AssessmentSummary(ORMModel):
     time_limit_minutes: int | None = None
     max_attempts: int | None = None
     status: AssessmentStatus
+    is_section_quiz: bool = False
     questions_count: int = 0
     created_at: datetime
 
@@ -140,8 +149,27 @@ class AssessmentInstructorRead(ORMModel):
     max_attempts: int | None = None
     shuffle_questions: bool
     show_correct_answers: bool
+    is_section_quiz: bool
     status: AssessmentStatus
     questions: list[QuestionInstructorRead] = Field(default_factory=list)
+
+
+class SectionQuizStatus(ORMModel):
+    """Snapshot of a learner's progress against a section quiz.
+
+    ``passed`` is the gating signal — until it flips to ``True`` the streaming
+    layer and progress endpoints will refuse lessons in later sections.
+    """
+
+    section_id: uuid.UUID
+    assessment_id: uuid.UUID | None = None
+    required: bool = False
+    passed: bool = False
+    attempts: int = 0
+    last_score_percent: int | None = None
+    best_score_percent: int | None = None
+    pass_percent: int | None = None
+    max_attempts: int | None = None
 
 
 # ---- Submissions ----

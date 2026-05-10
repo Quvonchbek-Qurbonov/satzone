@@ -120,16 +120,28 @@ async def update_lesson_progress(
 ) -> LessonProgress:
     enrollment = await get_enrollment_for_user(session, user, enrollment_id)
 
-    # Validate lesson belongs to the enrollment's course.
-    lesson_check = (
+    # Validate lesson belongs to the enrollment's course; surface its section
+    # so we can run the section-quiz gate below.
+    lesson_row = (
         await session.execute(
-            select(Lesson.id)
+            select(Lesson.id, Lesson.section_id)
             .join(CourseSection, CourseSection.id == Lesson.section_id)
             .where(Lesson.id == lesson_id, CourseSection.course_id == enrollment.course_id)
         )
-    ).scalar_one_or_none()
-    if lesson_check is None:
+    ).first()
+    if lesson_row is None:
         raise NotFoundError("Lesson not found in this course")
+
+    # Imported lazily to avoid a circular import (assessment_service →
+    # enrollment indirectly via shared ORM relationships).
+    from app.services import assessment_service
+
+    await assessment_service.assert_prior_section_quizzes_passed(
+        session,
+        user,
+        course_id=enrollment.course_id,
+        target_section_id=lesson_row[1],
+    )
 
     progress = (
         await session.execute(

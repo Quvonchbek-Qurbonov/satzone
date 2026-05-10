@@ -18,6 +18,7 @@ _MEDIA_FIELDS = (
     "thumbnail_url",
     "resource_url",
     "icon_url",
+    "image_url",
 )
 
 

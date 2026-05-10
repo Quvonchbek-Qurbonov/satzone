@@ -64,6 +64,11 @@ class Assessment(UUIDPKMixin, TimestampMixin, Base):
     max_attempts: Mapped[int | None] = mapped_column(Integer)
     shuffle_questions: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     show_correct_answers: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # When true, this assessment is the gating quiz at the end of ``section_id``
+    # — students must pass it before any lesson in a later section will play
+    # or accept progress updates. A partial unique index in the migration
+    # keeps the (section_id, is_section_quiz=TRUE) pair unique.
+    is_section_quiz: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     status: Mapped[AssessmentStatus] = mapped_column(
         assessment_status_enum, nullable=False, default=AssessmentStatus.DRAFT, index=True
     )
@@ -95,6 +100,9 @@ class Question(UUIDPKMixin, TimestampMixin, Base):
     explanation: Mapped[str | None] = mapped_column(Text)
     points: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Optional storage key for an inline question image (diagram, photo, …).
+    # Resolved through ``media_url`` at serialization time.
+    image_url: Mapped[str | None] = mapped_column(String(500))
     # For SHORT_ANSWER: list of accepted answers (case-insensitive match).
     expected_answers: Mapped[list[str] | None] = mapped_column(JSONB)
 
@@ -120,6 +128,7 @@ class QuestionOption(UUIDPKMixin, TimestampMixin, Base):
     text: Mapped[str] = mapped_column(Text, nullable=False)
     is_correct: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    image_url: Mapped[str | None] = mapped_column(String(500))
 
     question: Mapped[Question] = relationship(back_populates="options")
 

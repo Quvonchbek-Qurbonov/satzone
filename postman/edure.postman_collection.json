@@ -1624,6 +1624,36 @@
           }
         },
         {
+          "name": "Create section quiz (gating)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "if (j && j.id) pm.environment.set('section_quiz_id', j.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"End-of-section check\",\n  \"section_id\": \"{{section_id}}\",\n  \"is_section_quiz\": true,\n  \"pass_percent\": 70,\n  \"max_attempts\": 3\n}"
+            },
+            "url": "{{base_url}}/instructor/courses/{{instructor_course_id}}/assessments"
+          }
+        },
+        {
           "name": "Get assessment (instructor)",
           "request": {
             "method": "GET",
@@ -1703,6 +1733,72 @@
               "raw": "{\n  \"type\": \"short_answer\",\n  \"prompt\": \"Capital of France?\",\n  \"points\": 1,\n  \"expected_answers\": [\"Paris\"]\n}"
             },
             "url": "{{base_url}}/instructor/assessments/{{assessment_id}}/questions"
+          }
+        },
+        {
+          "name": "Add question (multi_choice with images)",
+          "description": "Multi-choice question. The picture-grid options reference image URLs uploaded via POST /instructor/options/{id}/image — pass that URL back in the option's image_url field, or leave blank and upload after creation.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"multi_choice\",\n  \"prompt\": \"Which of these are mammals?\",\n  \"points\": 2,\n  \"image_url\": null,\n  \"options\": [\n    {\"text\": \"Dolphin\", \"is_correct\": true},\n    {\"text\": \"Shark\", \"is_correct\": false},\n    {\"text\": \"Bat\", \"is_correct\": true},\n    {\"text\": \"Trout\", \"is_correct\": false}\n  ]\n}"
+            },
+            "url": "{{base_url}}/instructor/assessments/{{section_quiz_id}}/questions"
+          }
+        },
+        {
+          "name": "Upload question image",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": "{{base_url}}/instructor/questions/{{question_id}}/image"
+          }
+        },
+        {
+          "name": "Clear question image",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/instructor/questions/{{question_id}}/image"
+          }
+        },
+        {
+          "name": "Upload option image",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": "{{base_url}}/instructor/options/{{option_id}}/image"
+          }
+        },
+        {
+          "name": "Clear option image",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/instructor/options/{{option_id}}/image"
           }
         },
         {
@@ -1787,6 +1883,22 @@
           "request": {
             "method": "GET",
             "url": "{{base_url}}/assessments/{{assessment_id}}/submissions/me"
+          }
+        },
+        {
+          "name": "Get section quiz (student)",
+          "description": "Returns the published end-of-section quiz the learner must pass to advance. 404 with section_quiz_not_found if none has been published yet.",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/sections/{{section_id}}/quiz"
+          }
+        },
+        {
+          "name": "Section quiz status (student)",
+          "description": "Lightweight pass/attempts/score read used by the UI to unlock the next section.",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/sections/{{section_id}}/quiz/status"
           }
         }
       ]

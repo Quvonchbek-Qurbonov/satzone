@@ -139,6 +139,16 @@ async def create_assessment(
         section = await session.get(CourseSection, section_id)
         if section is None or section.course_id != course.id:
             raise ValidationAppError("Section does not belong to this course")
+
+    is_section_quiz = bool(data.get("is_section_quiz", False))
+    if is_section_quiz:
+        if section_id is None:
+            raise ValidationAppError(
+                "section_id is required when is_section_quiz is true",
+                code="section_quiz_requires_section",
+            )
+        await _ensure_section_quiz_unique(session, section_id, exclude_assessment_id=None)
+
     assessment = Assessment(
         course_id=course.id,
         section_id=section_id,
@@ -150,11 +160,32 @@ async def create_assessment(
         max_attempts=data.get("max_attempts"),
         shuffle_questions=data.get("shuffle_questions", False),
         show_correct_answers=data.get("show_correct_answers", True),
+        is_section_quiz=is_section_quiz,
         status=AssessmentStatus.DRAFT,
     )
     session.add(assessment)
     await session.commit()
     return await _reload_assessment(session, assessment.id)
+
+
+async def _ensure_section_quiz_unique(
+    session: AsyncSession,
+    section_id: uuid.UUID,
+    *,
+    exclude_assessment_id: uuid.UUID | None,
+) -> None:
+    stmt = select(Assessment.id).where(
+        Assessment.section_id == section_id,
+        Assessment.is_section_quiz.is_(True),
+    )
+    if exclude_assessment_id is not None:
+        stmt = stmt.where(Assessment.id != exclude_assessment_id)
+    existing = (await session.execute(stmt)).scalar_one_or_none()
+    if existing is not None:
+        raise ConflictError(
+            "This section already has a section quiz",
+            code="section_quiz_exists",
+        )
 
 
 async def update_assessment(
@@ -168,6 +199,19 @@ async def update_assessment(
         section = await session.get(CourseSection, data["section_id"])
         if section is None or section.course_id != assessment.course_id:
             raise ValidationAppError("Section does not belong to this course")
+
+    new_section_id = data.get("section_id", assessment.section_id) if "section_id" in data else assessment.section_id
+    new_is_section_quiz = data.get("is_section_quiz", assessment.is_section_quiz) if "is_section_quiz" in data else assessment.is_section_quiz
+    if new_is_section_quiz:
+        if new_section_id is None:
+            raise ValidationAppError(
+                "section_id is required when is_section_quiz is true",
+                code="section_quiz_requires_section",
+            )
+        await _ensure_section_quiz_unique(
+            session, new_section_id, exclude_assessment_id=assessment.id
+        )
+
     for k, v in data.items():
         setattr(assessment, k, v)
     await session.commit()
@@ -208,6 +252,7 @@ async def add_question(
         explanation=data.get("explanation"),
         points=data.get("points", 1),
         order=order,
+        image_url=data.get("image_url"),
         expected_answers=[a.lower() for a in (data.get("expected_answers") or [])] or None,
     )
     session.add(question)
@@ -221,6 +266,7 @@ async def add_question(
                 text=opt["text"],
                 is_correct=bool(opt.get("is_correct", False)),
                 order=opt.get("order") if opt.get("order") is not None else idx,
+                image_url=opt.get("image_url"),
             )
         )
     await session.commit()
@@ -242,6 +288,8 @@ async def update_question(
         question.points = data["points"]
     if "order" in data and data["order"] is not None:
         question.order = data["order"]
+    if "image_url" in data:
+        question.image_url = data["image_url"]
     if "expected_answers" in data and data["expected_answers"] is not None:
         question.expected_answers = [a.lower() for a in data["expected_answers"]]
 
@@ -257,6 +305,7 @@ async def update_question(
                     text=opt["text"],
                     is_correct=bool(opt.get("is_correct", False)),
                     order=opt.get("order") if opt.get("order") is not None else idx,
+                    image_url=opt.get("image_url"),
                 )
             )
     await session.commit()
@@ -419,3 +468,225 @@ async def list_assessment_submissions_for_instructor(
         .order_by(AssessmentSubmission.submitted_at.desc().nulls_last())
     )
     return await paginate(session, stmt, page_params)
+
+
+# ---------- Section-quiz lookup + gating ----------
+
+
+async def _section_for_user(
+    session: AsyncSession, user: User, section_id: uuid.UUID
+) -> CourseSection:
+    section = await session.get(CourseSection, section_id)
+    if section is None:
+        raise NotFoundError("Section not found")
+    enrolled = (
+        await session.execute(
+            select(Enrollment.id).where(
+                Enrollment.user_id == user.id,
+                Enrollment.course_id == section.course_id,
+            )
+        )
+    ).first()
+    if enrolled is None:
+        raise ForbiddenError(
+            "Enroll in the course to access this section",
+            code="not_enrolled",
+        )
+    return section
+
+
+async def get_section_quiz_for_student(
+    session: AsyncSession, user: User, section_id: uuid.UUID
+) -> Assessment:
+    """Return the published section quiz for ``section_id`` or raise 404."""
+    await _section_for_user(session, user, section_id)
+    stmt = (
+        select(Assessment)
+        .where(
+            Assessment.section_id == section_id,
+            Assessment.is_section_quiz.is_(True),
+            Assessment.status == AssessmentStatus.PUBLISHED,
+        )
+        .options(
+            selectinload(Assessment.questions).selectinload(Question.options),
+        )
+    )
+    assessment = (await session.execute(stmt)).scalar_one_or_none()
+    if assessment is None:
+        raise NotFoundError(
+            "Section has no published quiz",
+            code="section_quiz_not_found",
+        )
+    return assessment
+
+
+async def get_section_quiz_status(
+    session: AsyncSession, user: User, section_id: uuid.UUID
+) -> dict:
+    """Return progress against the section quiz — used by the UI to decide
+    whether the next-section CTA is enabled and to display attempt history.
+    """
+    await _section_for_user(session, user, section_id)
+    quiz = (
+        await session.execute(
+            select(Assessment).where(
+                Assessment.section_id == section_id,
+                Assessment.is_section_quiz.is_(True),
+                Assessment.status == AssessmentStatus.PUBLISHED,
+            )
+        )
+    ).scalar_one_or_none()
+
+    if quiz is None:
+        return {
+            "section_id": section_id,
+            "assessment_id": None,
+            "required": False,
+            "passed": False,
+            "attempts": 0,
+            "last_score_percent": None,
+            "best_score_percent": None,
+            "pass_percent": None,
+            "max_attempts": None,
+        }
+
+    rows = (
+        await session.execute(
+            select(
+                func.count(AssessmentSubmission.id),
+                func.max(AssessmentSubmission.score_percent),
+                func.bool_or(AssessmentSubmission.passed),
+            ).where(
+                AssessmentSubmission.assessment_id == quiz.id,
+                AssessmentSubmission.user_id == user.id,
+            )
+        )
+    ).one()
+    attempts = int(rows[0] or 0)
+    best = int(rows[1]) if rows[1] is not None else None
+    passed = bool(rows[2]) if rows[2] is not None else False
+
+    last_score = (
+        await session.execute(
+            select(AssessmentSubmission.score_percent)
+            .where(
+                AssessmentSubmission.assessment_id == quiz.id,
+                AssessmentSubmission.user_id == user.id,
+            )
+            .order_by(AssessmentSubmission.attempt_number.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+    return {
+        "section_id": section_id,
+        "assessment_id": quiz.id,
+        "required": True,
+        "passed": passed,
+        "attempts": attempts,
+        "last_score_percent": int(last_score) if last_score is not None else None,
+        "best_score_percent": best,
+        "pass_percent": quiz.pass_percent,
+        "max_attempts": quiz.max_attempts,
+    }
+
+
+async def assert_prior_section_quizzes_passed(
+    session: AsyncSession,
+    user: User,
+    *,
+    course_id: uuid.UUID,
+    target_section_id: uuid.UUID,
+) -> None:
+    """Raise ``ForbiddenError`` if any earlier-ordered section in ``course_id``
+    has a published section quiz that ``user`` has not yet passed.
+
+    Called from the streaming auth path and the lesson-progress endpoint so
+    a learner cannot watch or mark complete lessons in a later section
+    until each prior gate is cleared.
+    """
+    target = await session.get(CourseSection, target_section_id)
+    if target is None or target.course_id != course_id:
+        return  # Caller will surface the 404 separately.
+
+    prior_quizzes = (
+        await session.execute(
+            select(Assessment.id, Assessment.section_id, Assessment.title)
+            .join(CourseSection, CourseSection.id == Assessment.section_id)
+            .where(
+                CourseSection.course_id == course_id,
+                CourseSection.order < target.order,
+                Assessment.is_section_quiz.is_(True),
+                Assessment.status == AssessmentStatus.PUBLISHED,
+            )
+        )
+    ).all()
+    if not prior_quizzes:
+        return
+
+    quiz_ids = [row[0] for row in prior_quizzes]
+    passed_ids = set(
+        (
+            await session.execute(
+                select(AssessmentSubmission.assessment_id)
+                .where(
+                    AssessmentSubmission.user_id == user.id,
+                    AssessmentSubmission.assessment_id.in_(quiz_ids),
+                    AssessmentSubmission.passed.is_(True),
+                )
+                .distinct()
+            )
+        )
+        .scalars()
+        .all()
+    )
+    blocking = [row for row in prior_quizzes if row[0] not in passed_ids]
+    if blocking:
+        first = blocking[0]
+        raise ForbiddenError(
+            "Pass the previous section quiz to continue",
+            code="section_quiz_not_passed",
+            details={
+                "blocking_assessment_id": str(first[0]),
+                "blocking_section_id": str(first[1]),
+                "title": first[2],
+            },
+        )
+
+
+async def set_question_image(
+    session: AsyncSession,
+    instructor: Instructor,
+    question_id: uuid.UUID,
+    image_key: str | None,
+) -> Question:
+    question = await _get_owned_question(session, instructor, question_id)
+    question.image_url = image_key
+    await session.commit()
+    return await _reload_question(session, question.id)
+
+
+async def set_option_image(
+    session: AsyncSession,
+    instructor: Instructor,
+    option_id: uuid.UUID,
+    image_key: str | None,
+) -> QuestionOption:
+    stmt = (
+        select(QuestionOption)
+        .where(QuestionOption.id == option_id)
+        .options(
+            selectinload(QuestionOption.question)
+            .selectinload(Question.assessment)
+            .selectinload(Assessment.course),
+        )
+    )
+    option = (await session.execute(stmt)).scalar_one_or_none()
+    if option is None:
+        raise NotFoundError("Option not found")
+    if option.question.assessment.course.instructor_id != instructor.id:
+        raise ForbiddenError("You do not own this option")
+    option.image_url = image_key
+    await session.commit()
+    await session.refresh(option)
+    return option

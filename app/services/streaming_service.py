@@ -184,6 +184,18 @@ async def authorize_lesson_playback(
             "Enroll in this course to watch the lesson",
             code="not_enrolled",
         )
+
+    # Gate playback on prior section quizzes — students cannot watch lessons
+    # in section N+1 until each prior section's published quiz is passed.
+    # Imported lazily to avoid a cycle (assessment_service → enrollment).
+    from app.services import assessment_service
+
+    await assessment_service.assert_prior_section_quizzes_passed(
+        session,
+        user,
+        course_id=course.id,
+        target_section_id=lesson.section_id,
+    )
     return lesson
 
 

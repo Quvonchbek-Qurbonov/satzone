@@ -567,6 +567,7 @@ async def list_course_assessments(
             time_limit_minutes=a.time_limit_minutes,
             max_attempts=a.max_attempts,
             status=a.status,
+            is_section_quiz=a.is_section_quiz,
             questions_count=len(a.questions) if a.questions is not None else 0,
             created_at=a.created_at,
         )
@@ -669,6 +670,67 @@ async def delete_assessment_question(
     await _require_instructor_role(user)
     inst = await instructor_service.require_my_instructor(session, user)
     await assessment_service.delete_question(session, inst, question_id)
+
+
+@router.post("/questions/{question_id}/image", response_model=QuestionInstructorRead)
+async def upload_question_image(
+    question_id: uuid.UUID,
+    user: CurrentUser,
+    session: DbSession,
+    file: Annotated[UploadFile, File(...)],
+) -> QuestionInstructorRead:
+    """Attach an image (diagram, photo, …) to a quiz question."""
+    await _require_instructor_role(user)
+    inst = await instructor_service.require_my_instructor(session, user)
+    key, _ = await save_upload(
+        file, kind="image", subdir=f"assessments/questions/{question_id}"
+    )
+    question = await assessment_service.set_question_image(
+        session, inst, question_id, key
+    )
+    return QuestionInstructorRead.model_validate(question)
+
+
+@router.delete(
+    "/questions/{question_id}/image", response_model=QuestionInstructorRead
+)
+async def clear_question_image(
+    question_id: uuid.UUID, user: CurrentUser, session: DbSession
+) -> QuestionInstructorRead:
+    await _require_instructor_role(user)
+    inst = await instructor_service.require_my_instructor(session, user)
+    question = await assessment_service.set_question_image(
+        session, inst, question_id, None
+    )
+    return QuestionInstructorRead.model_validate(question)
+
+
+@router.post("/options/{option_id}/image", response_model=UploadResponse)
+async def upload_option_image(
+    option_id: uuid.UUID,
+    user: CurrentUser,
+    session: DbSession,
+    file: Annotated[UploadFile, File(...)],
+) -> UploadResponse:
+    """Attach an image to a single answer option (e.g. picture-multiple-
+    choice). Returns the resolved URL plus uploaded size.
+    """
+    await _require_instructor_role(user)
+    inst = await instructor_service.require_my_instructor(session, user)
+    key, size = await save_upload(
+        file, kind="image", subdir=f"assessments/options/{option_id}"
+    )
+    await assessment_service.set_option_image(session, inst, option_id, key)
+    return UploadResponse(url=media_url(key) or "", size_bytes=size)
+
+
+@router.delete("/options/{option_id}/image", status_code=status.HTTP_204_NO_CONTENT)
+async def clear_option_image(
+    option_id: uuid.UUID, user: CurrentUser, session: DbSession
+) -> None:
+    await _require_instructor_role(user)
+    inst = await instructor_service.require_my_instructor(session, user)
+    await assessment_service.set_option_image(session, inst, option_id, None)
 
 
 @router.get(
