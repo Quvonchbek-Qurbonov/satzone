@@ -60,7 +60,10 @@
       "PowerShell(.\\\\.venv\\\\Scripts\\\\python.exe -c \"import json; from app.main import app; spec = app.openapi\\(\\); json.dump\\(spec, open\\('postman/openapi.json','w', encoding='utf-8'\\), indent=2, ensure_ascii=False\\); print\\('exported lines:', sum\\(1 for _ in open\\('postman/openapi.json', encoding='utf-8'\\)\\)\\)\")",
       "PowerShell(.\\\\.venv\\\\Scripts\\\\python.exe -c \"import json; data = json.load\\(open\\('postman/openapi.json', encoding='utf-8'\\)\\); paths = sorted\\(p for p in data['paths'] if 'quiz' in p or 'image' in p or 'assessments' in p or 'sections' in p\\); print\\('\\\\n'.join\\(paths\\)\\)\")",
       "PowerShell(.\\\\.venv\\\\Scripts\\\\python.exe -m pytest -x --tb=short -q 2>&1 | Select-Object -Last 60)",
-      "PowerShell(.\\\\.venv\\\\Scripts\\\\python.exe -c \"import json; d=json.load\\(open\\('postman/openapi.json',encoding='utf-8'\\)\\); s=d['components']['schemas']; print\\('SectionQuizStatus' in s, 'is_section_quiz' in s['AssessmentCreate']['properties'], 'image_url' in s['QuestionStudentRead']['properties'], 'image_url' in s['OptionRead']['properties']\\)\")"
+      "PowerShell(.\\\\.venv\\\\Scripts\\\\python.exe -c \"import json; d=json.load\\(open\\('postman/openapi.json',encoding='utf-8'\\)\\); s=d['components']['schemas']; print\\('SectionQuizStatus' in s, 'is_section_quiz' in s['AssessmentCreate']['properties'], 'image_url' in s['QuestionStudentRead']['properties'], 'image_url' in s['OptionRead']['properties']\\)\")",
+      "Bash(dir D:Projectsatzone *)",
+      "Bash(.venv/Scripts/python.exe -m pytest tests/ -x --tb=short)",
+      "Bash(.venv/Scripts/python.exe *)"
     ]
   }
 }

@@ -200,8 +200,14 @@ async def update_assessment(
         if section is None or section.course_id != assessment.course_id:
             raise ValidationAppError("Section does not belong to this course")
 
-    new_section_id = data.get("section_id", assessment.section_id) if "section_id" in data else assessment.section_id
-    new_is_section_quiz = data.get("is_section_quiz", assessment.is_section_quiz) if "is_section_quiz" in data else assessment.is_section_quiz
+    # Clearing section_id implicitly demotes the assessment from a section
+    # quiz — otherwise the row sits orphaned with is_section_quiz=True but no
+    # section, which the student-facing lookup can never resolve.
+    if "section_id" in data and data["section_id"] is None and "is_section_quiz" not in data:
+        data["is_section_quiz"] = False
+
+    new_section_id = data.get("section_id", assessment.section_id)
+    new_is_section_quiz = data.get("is_section_quiz", assessment.is_section_quiz)
     if new_is_section_quiz:
         if new_section_id is None:
             raise ValidationAppError(
@@ -211,6 +217,21 @@ async def update_assessment(
         await _ensure_section_quiz_unique(
             session, new_section_id, exclude_assessment_id=assessment.id
         )
+
+    new_status = data.get("status", assessment.status)
+    if new_status == AssessmentStatus.PUBLISHED and assessment.status != AssessmentStatus.PUBLISHED:
+        question_count = (
+            await session.execute(
+                select(func.count(Question.id)).where(
+                    Question.assessment_id == assessment.id
+                )
+            )
+        ).scalar_one()
+        if not question_count:
+            raise ValidationAppError(
+                "Add at least one question before publishing",
+                code="publish_requires_questions",
+            )
 
     for k, v in data.items():
         setattr(assessment, k, v)
@@ -253,7 +274,7 @@ async def add_question(
         points=data.get("points", 1),
         order=order,
         image_url=data.get("image_url"),
-        expected_answers=[a.lower() for a in (data.get("expected_answers") or [])] or None,
+        expected_answers=[a.strip().lower() for a in (data.get("expected_answers") or []) if a and a.strip()] or None,
     )
     session.add(question)
     await session.flush()
@@ -291,7 +312,9 @@ async def update_question(
     if "image_url" in data:
         question.image_url = data["image_url"]
     if "expected_answers" in data and data["expected_answers"] is not None:
-        question.expected_answers = [a.lower() for a in data["expected_answers"]]
+        question.expected_answers = [
+            a.strip().lower() for a in data["expected_answers"] if a and a.strip()
+        ] or None
 
     if "options" in data and data["options"] is not None:
         # Replace options wholesale.
@@ -385,14 +408,21 @@ async def submit_assessment(
     await session.flush()
 
     questions_by_id = {q.id: q for q in assessment.questions}
-    total_points = sum(q.points for q in assessment.questions) or 1
+    total_points = sum(q.points for q in assessment.questions)
     awarded_total = 0
 
+    seen_qids: set[uuid.UUID] = set()
     for ans in answers:
         qid = ans["question_id"]
         question = questions_by_id.get(qid)
         if question is None:
             raise ValidationAppError(f"Question {qid} not in assessment")
+        if qid in seen_qids:
+            raise ValidationAppError(
+                f"Duplicate answer for question {qid}",
+                code="duplicate_answer",
+            )
+        seen_qids.add(qid)
 
         is_correct, awarded = _grade_answer(question, ans)
         awarded_total += awarded
@@ -409,9 +439,11 @@ async def submit_assessment(
             )
         )
 
-    score_percent = int(round((awarded_total / total_points) * 100))
-    submission.score_percent = score_percent
-    submission.passed = score_percent >= assessment.pass_percent
+    # Compute pass/fail against the true ratio so a 69.5% score doesn't round
+    # up past a 70% threshold. score_percent is the rounded display value.
+    raw_percent = (awarded_total / total_points * 100) if total_points > 0 else 0.0
+    submission.score_percent = int(round(raw_percent))
+    submission.passed = raw_percent >= assessment.pass_percent
 
     await session.commit()
     await session.refresh(submission, attribute_names=["answers"])
@@ -619,6 +651,7 @@ async def assert_prior_section_quizzes_passed(
                 Assessment.is_section_quiz.is_(True),
                 Assessment.status == AssessmentStatus.PUBLISHED,
             )
+            .order_by(CourseSection.order.asc())
         )
     ).all()
     if not prior_quizzes:
@@ -642,6 +675,8 @@ async def assert_prior_section_quizzes_passed(
     )
     blocking = [row for row in prior_quizzes if row[0] not in passed_ids]
     if blocking:
+        # prior_quizzes is sorted ascending by section.order, so blocking[0]
+        # is the earliest unpassed quiz — the one the learner should tackle next.
         first = blocking[0]
         raise ForbiddenError(
             "Pass the previous section quiz to continue",
