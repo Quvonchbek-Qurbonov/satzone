@@ -411,8 +411,7 @@ def media_url(value: str | None) -> str | None:
 
     * ``None`` / empty → ``None``.
     * Already an absolute URL (``http://`` / ``https://``) → returned as-is so
-      seeded data and external URLs (e.g. Gravatar, social-OAuth avatars)
-      keep working without migration.
+      external URLs (e.g. Gravatar, social-OAuth avatars) keep working.
     * A storage key under the local backend → ``{MEDIA_URL}/{key}``.
     * A storage key under the S3 backend → a fresh presigned GET URL, or a
       ``{AWS_S3_PUBLIC_BASE_URL}/{key}`` link when a CDN is configured.

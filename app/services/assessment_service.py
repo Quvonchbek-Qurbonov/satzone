@@ -349,11 +349,17 @@ async def delete_question(
 async def get_assessment_for_student(
     session: AsyncSession, user: User, assessment_id: uuid.UUID
 ) -> Assessment:
+    # Visibility inherits from the parent course: any assessment under a
+    # published course is reachable by enrolled learners. The per-assessment
+    # ``status`` column is an authoring hint but not enforced here — except
+    # ARCHIVED, which the instructor uses to retire an assessment in-place.
     stmt = (
         select(Assessment)
+        .join(Course, Course.id == Assessment.course_id)
         .where(
             Assessment.id == assessment_id,
-            Assessment.status == AssessmentStatus.PUBLISHED,
+            Course.status == PublishStatus.PUBLISHED,
+            Assessment.status != AssessmentStatus.ARCHIVED,
         )
         .options(
             selectinload(Assessment.questions).selectinload(Question.options),
@@ -530,14 +536,18 @@ async def _section_for_user(
 async def get_section_quiz_for_student(
     session: AsyncSession, user: User, section_id: uuid.UUID
 ) -> Assessment:
-    """Return the published section quiz for ``section_id`` or raise 404."""
+    """Return the section quiz for ``section_id`` or raise 404. Visibility
+    inherits from the parent course's publish state.
+    """
     await _section_for_user(session, user, section_id)
     stmt = (
         select(Assessment)
+        .join(Course, Course.id == Assessment.course_id)
         .where(
             Assessment.section_id == section_id,
             Assessment.is_section_quiz.is_(True),
-            Assessment.status == AssessmentStatus.PUBLISHED,
+            Course.status == PublishStatus.PUBLISHED,
+            Assessment.status != AssessmentStatus.ARCHIVED,
         )
         .options(
             selectinload(Assessment.questions).selectinload(Question.options),
@@ -561,10 +571,13 @@ async def get_section_quiz_status(
     await _section_for_user(session, user, section_id)
     quiz = (
         await session.execute(
-            select(Assessment).where(
+            select(Assessment)
+            .join(Course, Course.id == Assessment.course_id)
+            .where(
                 Assessment.section_id == section_id,
                 Assessment.is_section_quiz.is_(True),
-                Assessment.status == AssessmentStatus.PUBLISHED,
+                Course.status == PublishStatus.PUBLISHED,
+                Assessment.status != AssessmentStatus.ARCHIVED,
             )
         )
     ).scalar_one_or_none()
@@ -645,11 +658,13 @@ async def assert_prior_section_quizzes_passed(
         await session.execute(
             select(Assessment.id, Assessment.section_id, Assessment.title)
             .join(CourseSection, CourseSection.id == Assessment.section_id)
+            .join(Course, Course.id == Assessment.course_id)
             .where(
                 CourseSection.course_id == course_id,
                 CourseSection.order < target.order,
                 Assessment.is_section_quiz.is_(True),
-                Assessment.status == AssessmentStatus.PUBLISHED,
+                Course.status == PublishStatus.PUBLISHED,
+                Assessment.status != AssessmentStatus.ARCHIVED,
             )
             .order_by(CourseSection.order.asc())
         )

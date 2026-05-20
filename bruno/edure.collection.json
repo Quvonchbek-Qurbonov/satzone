@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "9b1f8c00-edure-collection",
     "name": "Edure API",
-    "description": "Production-ready Edure backend covering Sign Up, Onboarding, Home, Explore, Course Detail, My Learnings, Degree, and Account & Settings.\n\n**Setup**:\n1. Import this collection and the `Edure (local)` environment.\n2. Select that environment (top-right).\n3. Run **Auth → Login** — `access_token` and `refresh_token` are captured automatically.\n4. All other requests inherit Bearer auth from the collection.\n\nDefault env values target the local docker-compose stack at `http://localhost:8000` and the seeded demo user `demo@edure.local / DemoPass123!`.",
+    "description": "Production-ready Edure backend covering Sign Up, Onboarding, Home, Explore, Course Detail, My Learnings, Degree, and Account & Settings.\n\n**Setup**:\n1. Import this collection and the `Edure (local)` environment.\n2. Select that environment (top-right).\n3. Register an account via **Auth → Register** (and verify the email) — then set `user_email` / `user_password` in the environment.\n4. Run **Auth → Login** — `access_token` and `refresh_token` are captured automatically.\n5. All other requests inherit Bearer auth from the collection.\n\nDefault env values target the local docker-compose stack at `http://localhost:8000`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -114,6 +114,41 @@
               "raw": "{\n  \"email\": \"{{user_email}}\",\n  \"password\": \"{{user_password}}\"\n}"
             },
             "url": "{{base_url}}/auth/login"
+          }
+        },
+        {
+          "name": "Login by phone (captures tokens)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "if (j.access_token) pm.environment.set('access_token', j.access_token);",
+                  "if (j.refresh_token) pm.environment.set('refresh_token', j.refresh_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone_number\": \"{{user_phone}}\",\n  \"password\": \"{{user_password}}\"\n}"
+            },
+            "url": "{{base_url}}/auth/login/phone",
+            "description": "Requires the account to have a verified phone number (set via Submit phone + Verify phone). Same response shape as /auth/login."
           }
         },
         {

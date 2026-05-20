@@ -135,6 +135,47 @@
         }
       }
     },
+    "/api/v1/auth/login/phone": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Login By Phone",
+        "operationId": "login_by_phone_api_v1_auth_login_phone_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginByPhoneRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/refresh": {
       "post": {
         "tags": [
@@ -506,7 +547,7 @@
           "auth"
         ],
         "summary": "Me",
-        "description": "Current user — accessible even before phone is verified so the\nfrontend can read ``is_phone_verified`` and route into the verify-phone\nscreen.",
+        "description": "Current user \u2014 accessible even before phone is verified so the\nfrontend can read ``is_phone_verified`` and route into the verify-phone\nscreen.",
         "operationId": "me_api_v1_auth_me_get",
         "responses": {
           "200": {
@@ -3787,7 +3828,7 @@
           "instructor"
         ],
         "summary": "Upload Lesson Attachment",
-        "description": "Add a downloadable attachment (PDF, slides, code zip, …) to a lesson.\n\nMulti-file companion to ``/lessons/{id}/resource`` — that route\noverwrites a single ``Lesson.resource_url`` column, this one creates a\n``LessonAttachment`` row so a lesson can carry many files. Listed by\n``GET /lessons/{id}/attachments`` and surfaced in the My Learning →\nDownload screen.",
+        "description": "Add a downloadable attachment (PDF, slides, code zip, \u2026) to a lesson.\n\nMulti-file companion to ``/lessons/{id}/resource`` \u2014 that route\noverwrites a single ``Lesson.resource_url`` column, this one creates a\n``LessonAttachment`` row so a lesson can carry many files. Listed by\n``GET /lessons/{id}/attachments`` and surfaced in the My Learning \u2192\nDownload screen.",
         "operationId": "upload_lesson_attachment_api_v1_instructor_lessons__lesson_id__attachments_post",
         "security": [
           {
@@ -4456,7 +4497,7 @@
           "instructor"
         ],
         "summary": "Upload Question Image",
-        "description": "Attach an image (diagram, photo, …) to a quiz question.",
+        "description": "Attach an image (diagram, photo, \u2026) to a quiz question.",
         "operationId": "upload_question_image_api_v1_instructor_questions__question_id__image_post",
         "security": [
           {
@@ -5134,7 +5175,7 @@
           "streaming"
         ],
         "summary": "Lesson Hls Master",
-        "description": "Return the per-lesson HLS master playlist with rewritten signed URIs.\n\nEnrolled students see a *sliding* manifest exposing only segments up to\n``max_segment_index + LOOKAHEAD`` — they can't see (and so can't seek\nto) anything beyond that window. Admins, course owners, and free-preview\nviewers get the full VOD manifest unchanged.\n\nThe packager writes manifests with relative URIs; we rewrite each\n``EXT-X-KEY`` and segment line to absolute paths under our domain that\ncarry the same ``?t=`` token, so the player can fetch them without\nreaching back into S3 directly.",
+        "description": "Return the per-lesson HLS master playlist with rewritten signed URIs.\n\nEnrolled students see a *sliding* manifest exposing only segments up to\n``max_segment_index + LOOKAHEAD`` \u2014 they can't see (and so can't seek\nto) anything beyond that window. Admins, course owners, and free-preview\nviewers get the full VOD manifest unchanged.\n\nThe packager writes manifests with relative URIs; we rewrite each\n``EXT-X-KEY`` and segment line to absolute paths under our domain that\ncarry the same ``?t=`` token, so the player can fetch them without\nreaching back into S3 directly.",
         "operationId": "lesson_hls_master_api_v1_lessons__lesson_id__hls_master_m3u8_get",
         "parameters": [
           {
@@ -10230,6 +10271,89 @@
         "type": "object",
         "title": "AdminUserUpdate"
       },
+      "AssessmentBrief": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "section_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "pass_percent": {
+            "type": "integer",
+            "title": "Pass Percent"
+          },
+          "time_limit_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Limit Minutes"
+          },
+          "max_attempts": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Attempts"
+          },
+          "is_section_quiz": {
+            "type": "boolean",
+            "title": "Is Section Quiz",
+            "default": false
+          },
+          "status": {
+            "$ref": "#/components/schemas/AssessmentStatus"
+          },
+          "questions_count": {
+            "type": "integer",
+            "title": "Questions Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "pass_percent",
+          "status"
+        ],
+        "title": "AssessmentBrief"
+      },
       "AssessmentCreate": {
         "properties": {
           "title": {
@@ -12167,6 +12291,13 @@
             "type": "integer",
             "title": "Total Lessons",
             "default": 0
+          },
+          "course_assessments": {
+            "items": {
+              "$ref": "#/components/schemas/AssessmentBrief"
+            },
+            "type": "array",
+            "title": "Course Assessments"
           }
         },
         "type": "object",
@@ -13948,6 +14079,28 @@
         "type": "object",
         "title": "LessonUpdate"
       },
+      "LoginByPhoneRequest": {
+        "properties": {
+          "phone_number": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 8,
+            "title": "Phone Number"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "phone_number",
+          "password"
+        ],
+        "title": "LoginByPhoneRequest"
+      },
       "LoginRequest": {
         "properties": {
           "email": {
@@ -15389,7 +15542,7 @@
           "expires_year"
         ],
         "title": "PaymentMethodCreate",
-        "description": "Save a new card.\n\nThe PAN never persists — we forward it to Payme ``cards.create``, store\nthe returned token + last 4. After this call the verification flow is:\n``POST /me/payment-methods/{id}/verify/start`` → ``.../verify/confirm``."
+        "description": "Save a new card.\n\nThe PAN never persists \u2014 we forward it to Payme ``cards.create``, store\nthe returned token + last 4. After this call the verification flow is:\n``POST /me/payment-methods/{id}/verify/start`` \u2192 ``.../verify/confirm``."
       },
       "PaymentMethodRead": {
         "properties": {
@@ -16770,7 +16923,7 @@
           "section_id"
         ],
         "title": "SectionQuizStatus",
-        "description": "Snapshot of a learner's progress against a section quiz.\n\n``passed`` is the gating signal — until it flips to ``True`` the streaming\nlayer and progress endpoints will refuse lessons in later sections."
+        "description": "Snapshot of a learner's progress against a section quiz.\n\n``passed`` is the gating signal \u2014 until it flips to ``True`` the streaming\nlayer and progress endpoints will refuse lessons in later sections."
       },
       "SectionRead": {
         "properties": {
@@ -16793,6 +16946,13 @@
             },
             "type": "array",
             "title": "Lessons"
+          },
+          "assessments": {
+            "items": {
+              "$ref": "#/components/schemas/AssessmentBrief"
+            },
+            "type": "array",
+            "title": "Assessments"
           }
         },
         "type": "object",

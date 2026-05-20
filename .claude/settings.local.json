@@ -63,7 +63,12 @@
       "PowerShell(.\\\\.venv\\\\Scripts\\\\python.exe -c \"import json; d=json.load\\(open\\('postman/openapi.json',encoding='utf-8'\\)\\); s=d['components']['schemas']; print\\('SectionQuizStatus' in s, 'is_section_quiz' in s['AssessmentCreate']['properties'], 'image_url' in s['QuestionStudentRead']['properties'], 'image_url' in s['OptionRead']['properties']\\)\")",
       "Bash(dir D:Projectsatzone *)",
       "Bash(.venv/Scripts/python.exe -m pytest tests/ -x --tb=short)",
-      "Bash(.venv/Scripts/python.exe *)"
+      "Bash(.venv/Scripts/python.exe *)",
+      "PowerShell($f = Get-ChildItem -Path \"D:\\\\Project\\\\satzone\\\\postman\"; $f | ForEach-Object { [PSCustomObject]@{ Name = $_.Name; Length = $_.Length } } | Format-Table)",
+      "Bash(git -C \"D:/Project/satzone\" mv postman bruno)",
+      "Bash(git -C \"D:/Project/satzone\" mv \"bruno/edure.postman_collection.json\" \"bruno/edure.collection.json\")",
+      "Bash(git -C \"D:/Project/satzone\" mv \"bruno/edure.postman_environment.json\" \"bruno/edure.environment.json\")",
+      "Bash(git *)"
     ]
   }
 }

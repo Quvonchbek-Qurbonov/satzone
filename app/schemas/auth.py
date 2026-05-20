@@ -29,6 +29,16 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class LoginByPhoneRequest(BaseModel):
+    phone_number: str = Field(min_length=8, max_length=32)
+    password: str = Field(min_length=1, max_length=128)
+
+    @field_validator("phone_number")
+    @classmethod
+    def _validate_phone(cls, v: str) -> str:
+        return _normalize_phone(v)
+
+
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str

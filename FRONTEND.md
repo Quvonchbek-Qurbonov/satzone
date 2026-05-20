@@ -778,7 +778,7 @@ npx openapi-typescript http://localhost:8000/api/v1/openapi.json \
 ```
 
 Re-run when the backend changes. The OpenAPI spec is committed at
-`postman/openapi.json` — you can also point the generator at the file.
+`bruno/openapi.json` — you can also point the generator at the file.
 
 ### Fetch wrapper sketch
 
@@ -838,7 +838,6 @@ async function tryRefresh(): Promise<boolean> {
 # Backend up
 docker compose up -d
 docker compose exec api alembic upgrade head
-docker compose exec api python -m scripts.seed   # creates demo@edure.local / DemoPass123!
 
 # Backend runs at http://localhost:8000
 # OpenAPI: http://localhost:8000/api/v1/openapi.json
@@ -848,8 +847,8 @@ docker compose exec api python -m scripts.seed   # creates demo@edure.local / De
 docker compose up -d --force-recreate api
 ```
 
-The seeded admin/instructor/users are fine for local dev. To bootstrap a fresh
-admin without the seed:
+Register an account through `POST /auth/register`, verify the email, then
+promote it to admin if you need elevated access:
 
 ```bash
 docker compose exec db psql -U satzone -d satzone -c \

@@ -26,7 +26,6 @@ app/
   services/          business logic (auth, course, enrollment, program, home, onboarding)
   utils/             email
 alembic/             migrations
-scripts/seed.py      sample data
 tests/               pytest + httpx smoke tests
 ```
 
@@ -41,9 +40,6 @@ docker compose up --build -d
 
 # Apply migrations
 docker compose exec api alembic upgrade head
-
-# Seed sample data (optional but recommended)
-docker compose exec api python -m scripts.seed
 ```
 
 API root: <http://localhost:8000>
@@ -61,7 +57,6 @@ docker compose up -d db redis
 cp .env.example .env  # set POSTGRES_HOST=localhost, REDIS_HOST=localhost
 
 alembic upgrade head
-python -m scripts.seed
 uvicorn app.main:app --reload
 ```
 

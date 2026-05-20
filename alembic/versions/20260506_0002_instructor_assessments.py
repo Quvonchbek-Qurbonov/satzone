@@ -36,7 +36,7 @@ def upgrade() -> None:
     QUESTION_TYPE.create(bind, checkfirst=True)
     ASSESSMENT_STATUS.create(bind, checkfirst=True)
 
-    # Link Instructor → User (nullable so legacy seed data keeps working).
+    # Link Instructor → User (nullable so historical rows without an owner keep working).
     op.add_column(
         "instructors",
         sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=True),

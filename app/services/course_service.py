@@ -9,9 +9,10 @@ from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import NotFoundError
 from app.core.pagination import PageParams, paginate
+from app.models.assessment import Assessment, Question
 from app.models.catalog import Category, Instructor
 from app.models.course import Course, CourseSection, Lesson
-from app.models.enums import CourseLevel, PublishStatus
+from app.models.enums import AssessmentStatus, CourseLevel, PublishStatus
 from app.models.review import Review
 
 SortOption = Literal["popular", "newest", "rating", "price_asc", "price_desc"]
@@ -142,6 +143,29 @@ async def get_curriculum(session: AsyncSession, course_id: uuid.UUID) -> tuple[l
             total_lessons += 1
 
     return list(sections), total_duration, total_lessons
+
+
+async def list_course_assessments_for_student(
+    session: AsyncSession, course_id: uuid.UUID
+) -> list[tuple[Assessment, int]]:
+    """Return every non-archived assessment in ``course_id`` along with its
+    question count. Caller is responsible for verifying course publish state
+    — typically reached via ``get_course_by_slug`` which already filters to
+    PUBLISHED courses.
+    """
+    rows = (
+        await session.execute(
+            select(Assessment, func.count(Question.id))
+            .outerjoin(Question, Question.assessment_id == Assessment.id)
+            .where(
+                Assessment.course_id == course_id,
+                Assessment.status != AssessmentStatus.ARCHIVED,
+            )
+            .group_by(Assessment.id)
+            .order_by(Assessment.created_at.asc())
+        )
+    ).all()
+    return [(a, int(c or 0)) for a, c in rows]
 
 
 async def get_related_courses(

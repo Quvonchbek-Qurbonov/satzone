@@ -22,13 +22,13 @@
     },
     {
       "key": "user_email",
-      "value": "demo@edure.local",
+      "value": "",
       "type": "default",
       "enabled": true
     },
     {
       "key": "user_password",
-      "value": "DemoPass123!",
+      "value": "",
       "type": "secret",
       "enabled": true
     },

@@ -7,7 +7,7 @@ from decimal import Decimal
 from pydantic import Field, computed_field, model_validator
 
 from app.core.config import settings
-from app.models.enums import CourseLevel, HlsStatus, LessonType, PublishStatus
+from app.models.enums import AssessmentStatus, CourseLevel, HlsStatus, LessonType, PublishStatus
 from app.schemas.base import ORMModel
 from app.schemas.category import CategoryRead
 from app.schemas.instructor import InstructorSummary
@@ -142,14 +142,32 @@ class LessonRead(LessonSummary):
         }
 
 
+class AssessmentBrief(ORMModel):
+    id: uuid.UUID
+    section_id: uuid.UUID | None = None
+    title: str
+    description: str | None = None
+    pass_percent: int
+    time_limit_minutes: int | None = None
+    max_attempts: int | None = None
+    is_section_quiz: bool = False
+    status: AssessmentStatus
+    questions_count: int = 0
+
+
 class SectionRead(ORMModel):
     id: uuid.UUID
     title: str
     order: int
     lessons: list[LessonSummary] = Field(default_factory=list)
+    assessments: list[AssessmentBrief] = Field(default_factory=list)
 
 
 class CurriculumRead(ORMModel):
     sections: list[SectionRead]
     total_duration_seconds: int = 0
     total_lessons: int = 0
+    # Course-level assessments (no ``section_id``) — e.g. a final assignment
+    # that spans the whole course. Section-scoped assessments live inside
+    # ``sections[].assessments``.
+    course_assessments: list[AssessmentBrief] = Field(default_factory=list)

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from urllib.parse import quote
+
 from fastapi import APIRouter, Depends, Query, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 
@@ -13,6 +15,7 @@ from app.redis_client import RedisDep
 from app.services import google_oauth_service
 from app.schemas.auth import (
     EmailVerifyRequest,
+    LoginByPhoneRequest,
     LoginRequest,
     LogoutRequest,
     PasswordResetConfirm,
@@ -49,6 +52,19 @@ async def login(payload: LoginRequest, session: DbSession, request: Request) -> 
     tokens = await auth_service.login(
         session=session,
         email=payload.email,
+        password=payload.password,
+        request=request,
+    )
+    return TokenResponse(**tokens)
+
+
+@router.post("/login/phone", response_model=TokenResponse)
+async def login_by_phone(
+    payload: LoginByPhoneRequest, session: DbSession, request: Request
+) -> TokenResponse:
+    tokens = await auth_service.login_by_phone(
+        session=session,
+        phone_number=payload.phone_number,
         password=payload.password,
         request=request,
     )
@@ -186,45 +202,35 @@ async def google_login() -> RedirectResponse:
     )
 
 
-@router.get("/google/callback", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/google/callback", include_in_schema=False)
 async def google_callback(
     session: DbSession,
     request: Request,
     code: str = Query(..., min_length=1, max_length=2048),
     state: str = Query(..., min_length=1, max_length=2048),
-) -> HTMLResponse:
+) -> RedirectResponse:
     """Google redirects the browser here after consent. We exchange the code,
-    find-or-create the user, and render a tiny page that displays the access /
-    refresh tokens (testable without a frontend) plus a one-click handoff link
-    to FRONTEND_URL with the tokens in the URL fragment."""
+    find-or-create the user, and 303-redirect to ``FRONTEND_URL/auth/google/callback``
+    with the tokens (or an error) in the URL fragment. The fragment never
+    reaches the server, so the SPA can read it from ``window.location.hash``
+    without leaking tokens to access logs or referers."""
+    frontend_cb = f"{settings.FRONTEND_URL.rstrip('/')}/auth/google/callback"
     try:
         verify_oauth_state(state)
         user = await google_oauth_service.complete_oauth_flow(session, code)
     except AppError as exc:
-        return HTMLResponse(
-            f"<!doctype html><meta charset='utf-8'><title>Google sign-in failed</title>"
-            f"<body style='font-family:system-ui;max-width:480px;margin:4rem auto;text-align:center'>"
-            f"<h1>Google sign-in failed</h1><p>{exc.message}</p></body>",
-            status_code=exc.status_code,
+        return RedirectResponse(
+            url=f"{frontend_cb}#error={exc.code}&error_description={quote(exc.message)}",
+            status_code=status.HTTP_303_SEE_OTHER,
         )
 
     from app.services import auth_service
 
     tokens = await auth_service.issue_tokens(session, user, request)
     handoff = (
-        f"{settings.FRONTEND_URL.rstrip('/')}/auth/google/callback"
+        f"{frontend_cb}"
         f"#access_token={tokens['access_token']}"
         f"&refresh_token={tokens['refresh_token']}"
         f"&expires_in={tokens['expires_in']}"
     )
-    return HTMLResponse(
-        "<!doctype html><meta charset='utf-8'><title>Signed in with Google</title>"
-        "<body style='font-family:system-ui;max-width:600px;margin:3rem auto'>"
-        f"<h1>Signed in as {user.email}</h1>"
-        f"<p><a href='{handoff}'>Continue to the app</a></p>"
-        "<details open><summary>Tokens (for API testing)</summary>"
-        f"<p><b>access_token</b><br><code style='word-break:break-all'>{tokens['access_token']}</code></p>"
-        f"<p><b>refresh_token</b><br><code style='word-break:break-all'>{tokens['refresh_token']}</code></p>"
-        f"<p>expires_in: {tokens['expires_in']}s</p>"
-        "</details></body>"
-    )
+    return RedirectResponse(url=handoff, status_code=status.HTTP_303_SEE_OTHER)

@@ -1,8 +1,9 @@
-"""One-shot helper that injects a 'Video Streaming' folder into the Postman
-collection. Idempotent: re-running it replaces the existing folder.
+"""One-shot helper that injects a 'Video Streaming' folder into the importable
+Postman-format collection used by Bruno. Idempotent: re-running it replaces
+the existing folder.
 
 Run:
-    python scripts/add_streaming_postman.py
+    python scripts/add_streaming_bruno.py
 """
 
 from __future__ import annotations
@@ -11,8 +12,8 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-COLLECTION = ROOT / "postman" / "edure.postman_collection.json"
-ENV = ROOT / "postman" / "edure.postman_environment.json"
+COLLECTION = ROOT / "bruno" / "edure.collection.json"
+ENV = ROOT / "bruno" / "edure.environment.json"
 
 
 def request(name: str, method: str, path: str, *, body: str | None = None, exec_lines: list[str] | None = None, query: list[dict] | None = None) -> dict:
@@ -141,7 +142,7 @@ def main() -> None:
         ("preview_stream_url", ""),
     ])
     ENV.write_text(json.dumps(env, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    print("postman: Video Streaming folder + env vars synced")
+    print("bruno: Video Streaming folder + env vars synced")
 
 
 if __name__ == "__main__":

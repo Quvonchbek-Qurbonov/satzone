@@ -1,27 +1,43 @@
-# Postman docs
+# Bruno docs
 
-Three files for Postman:
+Five files for [Bruno](https://www.usebruno.com/):
 
 | File | Purpose |
 | ---- | ------- |
-| `edure.postman_collection.json` | Postman Collection v2.1 — Auth, Onboarding, Home, Explore, Reviews, My Learnings, Notes, Downloads, Activity, Video Streaming, Instructor, Assessments, Degree, Account & Settings, **Payments**, Admin. Auto-token-capture scripts on key requests. The Video Streaming folder is HLS-only for lessons (direct-MP4 endpoint removed). |
-| `edure.postman_environment.json` | Environment with `base_url`, `access_token`, `refresh_token`, and other useful slugs/IDs |
-| `openapi.json` | Raw OpenAPI 3 spec exported from the live API (for tools that prefer OpenAPI) — regenerate after adding endpoints with `curl http://localhost:8000/api/v1/openapi.json -o postman/openapi.json`. |
+| `bruno.json` | Bruno collection config — point Bruno → **Open Collection** at this directory and Bruno will treat it as the collection root. |
+| `environments/Local.bru` | Bruno-native environment with `base_url`, `access_token`, `refresh_token`, and other slugs/IDs. Selected via Bruno's top-right environment dropdown. |
+| `edure.collection.json` | Postman Collection v2.1 — Auth, Onboarding, Home, Explore, Reviews, My Learnings, Notes, Downloads, Activity, Video Streaming, Instructor, Assessments, Degree, Account & Settings, **Payments**, Admin. Auto-token-capture scripts on key requests. The Video Streaming folder is HLS-only for lessons (direct-MP4 endpoint removed). Import once into Bruno to populate the request tree. |
+| `edure.environment.json` | Postman-format environment kept alongside the collection for one-shot import. The `.bru` file under `environments/` is the source of truth once you're inside Bruno. |
+| `openapi.json` | Raw OpenAPI 3 spec exported from the live API (for tools that prefer OpenAPI) — regenerate after adding endpoints with `curl http://localhost:8000/api/v1/openapi.json -o bruno/openapi.json`. Bruno can also import this directly via **Import Collection → OpenAPI**. |
 
-## Import
+## Open in Bruno
 
-1. Postman → **Import** → drop both `edure.postman_collection.json` and `edure.postman_environment.json`.
-2. Top-right environment dropdown → **Edure (local)**.
-3. Make sure the stack is up: `docker compose up -d`.
-4. Run **Auth → Login (captures tokens)**.
-   - Test script writes `access_token` and `refresh_token` into the environment.
-5. Every other request inherits Bearer auth from the collection — just hit Send.
+1. Bruno → **Open Collection** → select the `bruno/` directory. Bruno reads `bruno.json` and shows the `Local` environment under `environments/`.
+2. Top-right environment dropdown → **Local**. Fill in `user_password` (marked secret) if you want auth tests to run.
+3. First time only — bring the requests in: Bruno → **Import Collection** → choose `edure.collection.json`. Bruno converts the Postman v2.1 file into `.bru` requests under the collection. (`openapi.json` works too if you'd rather start from the spec.)
+4. Make sure the stack is up: `docker compose up -d`.
+5. Run **Auth → Login (captures tokens)**.
+   - Post-response script writes `access_token` and `refresh_token` into the active environment.
+6. Every other request inherits Bearer auth from the collection — just hit Send.
 
-Default credentials match the seeded demo user: `demo@edure.local` / `DemoPass123!`.
+Register a user via `POST /auth/register` (and verify the email) before
+running auth-gated requests. Set `user_email` / `user_password` in the
+`Local` environment to those credentials.
+
+### Postman ↔ Bruno script compatibility
+
+The auto-capture scripts in `edure.collection.json` use the Postman API (`pm.environment.set(...)`, `pm.test(...)`). Bruno ships a Postman-compat shim so these run unchanged after import; if you ever rewrite them in Bruno-native style, the equivalents are:
+
+| Postman | Bruno |
+| ------- | ----- |
+| `pm.environment.set("k", v)` | `bru.setEnvVar("k", v)` |
+| `pm.environment.get("k")` | `bru.getEnvVar("k")` |
+| `pm.response.json()` | `res.getBody()` |
+| `pm.test("name", fn)` | `test("name", fn)` (Chai assertions identical) |
 
 ## Auto-capture scripts
 
-These requests have test scripts that populate environment variables for downstream calls:
+These requests have post-response scripts that populate environment variables for downstream calls:
 
 | Request | Sets |
 | ------- | ---- |
@@ -118,14 +134,17 @@ These endpoints require a user with `role=instructor` (or `admin`) — `auth/reg
 8. **Instructor → Publish course** (requires ≥1 lesson and a `description`).
 9. **Assessments → Create assessment** → sets `assessment_id`.
 10. **Assessments → Add question (single_choice)** → sets `question_id`, `option_id`.
-11. **Assessments → Patch assessment** with `{ "status": "published" }` so students can take it.
+11. **Assessments → Patch assessment** with `{ "status": "published" }` so students can take it. Publishing now rejects assessments with zero questions (`publish_requires_questions`, HTTP 422).
 12. Re-login as a student, **My Learnings → Enroll**, then **Assessments → Submit assessment (student)**.
+    - Submitting two answers for the same `question_id` returns `duplicate_answer` (HTTP 422) instead of a generic conflict.
+    - Pass/fail is computed against the raw percentage — a 69.5% score no longer rounds up past a 70% pass threshold.
+    - SHORT_ANSWER comparisons strip whitespace + lowercase on both sides, so accepted answers entered with stray spaces still match.
 13. Back as the instructor: **Assessments → List submissions**, **Instructor → Course analytics**.
 
 ## Re-export OpenAPI
 
 ```bash
-curl http://localhost:8000/api/v1/openapi.json -o postman/openapi.json
+curl http://localhost:8000/api/v1/openapi.json -o bruno/openapi.json
 ```
 
-Postman can also import the OpenAPI file directly (Import → File → `openapi.json`), but you lose the test scripts and pre-set environment values that the curated collection provides.
+Bruno can also import the OpenAPI file directly (**Import Collection → OpenAPI**), but you lose the post-response scripts and pre-set environment values that the curated collection provides.

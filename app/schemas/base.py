@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, field_serializer
 # Field names whose values are stored as opaque media-storage keys (not URLs).
 # At serialization time they're resolved to a fresh URL — presigned for S3, or
 # the static-media URL for local. Absolute URLs already in the value pass
-# through unchanged, so seed data and external avatars keep working.
+# through unchanged, so external avatars (e.g. Gravatar) keep working.
 #
 # Deliberately excluded: ``video_url`` and ``preview_video_url``. Lesson and
 # course preview videos are NEVER returned as direct URLs. The client must hit

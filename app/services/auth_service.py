@@ -195,6 +195,54 @@ async def login(
     return _build_token_response(user.id, raw_refresh)
 
 
+async def login_by_phone(
+    session: AsyncSession,
+    phone_number: str,
+    password: str,
+    request: Request | None = None,
+) -> dict:
+    """Same shape as :func:`login`, but identifies the user by a verified phone.
+
+    Only matches when ``is_phone_verified`` is true — an unverified phone
+    sitting on the row is just a typed-in string, not proof of identity.
+    Google-only users (no ``password_hash``) get the same ``oauth_only``
+    redirect as on email login.
+    """
+    stmt = select(User).where(
+        User.phone_number == phone_number, User.is_phone_verified.is_(True)
+    )
+    user = (await session.execute(stmt)).scalar_one_or_none()
+    candidate_hash = (
+        user.password_hash
+        if user and user.password_hash
+        else hash_password("dummy-disposable-string")
+    )
+    valid = verify_password(password, candidate_hash)
+    if user and user.password_hash is None:
+        raise UnauthorizedError(
+            "This account uses Google sign-in", code="oauth_only"
+        )
+    if not user or not valid:
+        raise UnauthorizedError(
+            "Invalid phone number or password", code="invalid_credentials"
+        )
+    if not user.is_active:
+        raise UnauthorizedError("Account is disabled", code="account_disabled")
+    if not user.is_verified:
+        raise UnauthorizedError(
+            "Please verify your email before logging in",
+            code="email_not_verified",
+        )
+
+    if needs_rehash(user.password_hash):
+        user.password_hash = hash_password(password)
+
+    user.last_login_at = _now()
+    _, raw_refresh = await _create_refresh_token(session, user.id, request)
+    await session.commit()
+    return _build_token_response(user.id, raw_refresh)
+
+
 async def refresh(
     session: AsyncSession,
     raw_token: str,

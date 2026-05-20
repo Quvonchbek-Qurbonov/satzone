@@ -11,7 +11,14 @@ from app.core.pagination import Page, PageParams, page_params, to_page
 from app.db.deps import DbSession
 from app.models.enums import CourseLevel
 from app.models.review import Review
-from app.schemas.course import CourseDetail, CourseSummary, CurriculumRead, LessonSummary, SectionRead
+from app.schemas.course import (
+    AssessmentBrief,
+    CourseDetail,
+    CourseSummary,
+    CurriculumRead,
+    LessonSummary,
+    SectionRead,
+)
 from app.schemas.review import ReviewCreate, ReviewRead, ReviewUpdate
 from app.services import course_service
 from sqlalchemy import select
@@ -65,6 +72,28 @@ async def course_detail(slug: str, session: DbSession) -> CourseDetail:
 async def course_curriculum(slug: str, session: DbSession) -> CurriculumRead:
     course = await course_service.get_course_by_slug(session, slug)
     sections, total_duration, total_lessons = await course_service.get_curriculum(session, course.id)
+    assessments = await course_service.list_course_assessments_for_student(session, course.id)
+
+    section_assessments: dict[uuid.UUID, list[AssessmentBrief]] = {}
+    course_level: list[AssessmentBrief] = []
+    for assessment, qcount in assessments:
+        brief = AssessmentBrief(
+            id=assessment.id,
+            section_id=assessment.section_id,
+            title=assessment.title,
+            description=assessment.description,
+            pass_percent=assessment.pass_percent,
+            time_limit_minutes=assessment.time_limit_minutes,
+            max_attempts=assessment.max_attempts,
+            is_section_quiz=assessment.is_section_quiz,
+            status=assessment.status,
+            questions_count=qcount,
+        )
+        if assessment.section_id is None:
+            course_level.append(brief)
+        else:
+            section_assessments.setdefault(assessment.section_id, []).append(brief)
+
     return CurriculumRead(
         sections=[
             SectionRead(
@@ -72,11 +101,13 @@ async def course_curriculum(slug: str, session: DbSession) -> CurriculumRead:
                 title=s.title,
                 order=s.order,
                 lessons=[LessonSummary.model_validate(l) for l in s.lessons],
+                assessments=section_assessments.get(s.id, []),
             )
             for s in sections
         ],
         total_duration_seconds=total_duration,
         total_lessons=total_lessons,
+        course_assessments=course_level,
     )
 
 
