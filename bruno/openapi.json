@@ -346,7 +346,7 @@
           "auth"
         ],
         "summary": "Submit Phone",
-        "description": "Stash a phone number + freshly-minted code in Redis and email it.\n\nRe-callable until the phone is verified, so the user can correct a typo.\nOnce ``is_phone_verified`` is true the endpoint refuses with\n``phone_already_verified``. The phone is **not** persisted to ``users``\nuntil ``/auth/verify-phone`` succeeds.",
+        "description": "Stash a phone number + freshly-minted code in Redis and deliver it.\n\nDelivery is SMS when ``USE_SMS_PROVIDER`` is enabled in the environment,\notherwise the code is emailed to the user's account email (dev fallback).\n\nRe-callable until the phone is verified, so the user can correct a typo.\nOnce ``is_phone_verified`` is true the endpoint refuses with\n``phone_already_verified``. The phone is **not** persisted to ``users``\nuntil ``/auth/verify-phone`` succeeds.",
         "operationId": "submit_phone_api_v1_auth_phone_post",
         "requestBody": {
           "content": {

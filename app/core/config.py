@@ -42,8 +42,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     PASSWORD_RESET_EXPIRE_MINUTES: int = 30
     EMAIL_VERIFY_EXPIRE_HOURS: int = 48
-    # Phone verification — code is currently delivered over email as a stand-in
-    # for SMS, so the expiry is shorter than the email-verify link.
+    # Phone verification — code is delivered over SMS (see SMS_BACKEND).
     PHONE_VERIFY_EXPIRE_MINUTES: int = 15
     PHONE_VERIFY_MAX_ATTEMPTS: int = 5
     PHONE_CODE_LENGTH: int = 6
@@ -60,6 +59,26 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str | None = None
     SMTP_TLS: bool = True
     BREVO_API_KEY: str | None = None
+
+    # Master switch for phone-verification delivery. False (default) keeps
+    # development frictionless by emailing the OTP to the user's account
+    # email instead of hitting an SMS provider — no Brevo/Infobip key, no
+    # phone-number validation pain. Flip to True in staging/prod to route
+    # codes through SMS_BACKEND below.
+    USE_SMS_PROVIDER: bool = False
+
+    # SMS — used for phone-verification codes when USE_SMS_PROVIDER=True.
+    # "console" logs the body for dev; "brevo" calls Brevo's transactional
+    # SMS API and requires BREVO_API_KEY plus an approved BREVO_SMS_SENDER
+    # (alphanumeric, max 11 chars in most countries; numeric in those that
+    # disallow alpha senders). "infobip" uses Infobip's /sms/2/text/advanced
+    # endpoint — requires INFOBIP_API_KEY and the personalized
+    # INFOBIP_BASE_URL given on signup.
+    SMS_BACKEND: Literal["console", "brevo", "infobip"] = "console"
+    BREVO_SMS_SENDER: str = "Edure"
+    INFOBIP_API_KEY: str | None = None
+    INFOBIP_BASE_URL: str | None = None
+    INFOBIP_SMS_SENDER: str = "Edure"
 
     FRONTEND_URL: str = "http://localhost:3000"
     API_BASE_URL: str = "http://localhost:8000"

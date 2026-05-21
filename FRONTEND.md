@@ -103,9 +103,12 @@ End-to-end:
    Treat this code as "redirect to verify-phone screen", not as a logout.
 5. **`POST /auth/phone {phone_number}`** (Bearer auth) → the number and a
    freshly-minted 6-digit code are staged in Redis (TTL 15 min); nothing is
-   written to the user record yet. **Until SMS is wired in, the code is
-   delivered to the user's email** — show copy like "We've emailed your
-   phone verification code (SMS coming soon)." Re-callable to fix typos
+   written to the user record yet. **The code is sent as an SMS to the
+   submitted number** (Brevo or Infobip transactional SMS) — show copy like
+   "We've sent a verification code to your phone." In environments where
+   `USE_SMS_PROVIDER=false` (typical for local dev) the same code is
+   emailed to the user's account email instead — the API response is
+   identical, so the frontend doesn't branch. Re-callable to fix typos
    until verified — each call replaces the staged number and resets the
    attempt counter.
 6. **`POST /auth/verify-phone {code}`** (Bearer auth) → on match, the staged
@@ -259,8 +262,9 @@ frontend handles its own UI translations.
 - **Update**: `PUT /onboarding` with `{locale: "uz"}` (or any BCP-47-ish
   short code your UI uses) — this is what onboarding's locale step writes.
 - **Default**: `"en"` until the user picks something else.
-- **Email content**: backend emails (verify, password reset, phone code) are
-  English-only today; localized copy will be added when content i18n lands.
+- **Outbound content**: backend emails (verify, password reset) and the
+  phone-code SMS are English-only today; localized copy will be added when
+  content i18n lands.
 
 When content translations land later, the existing `locale` value will drive
 which translation gets returned — same field, no migration required on the
@@ -318,7 +322,7 @@ access token is needed.
 | `POST /auth/logout` | – | `{refresh_token}` | `{message}` | Idempotent |
 | `POST /auth/verify-email` | – | `{token}` | `{message}` | Token from email link |
 | `POST /auth/resend-verification` | – | `{email}` | `{message}` | Always 200 (no enumeration) |
-| `POST /auth/phone` | ✓ | `{phone_number}` | `{message}` | Stages number in Redis, emails 6-digit code |
+| `POST /auth/phone` | ✓ | `{phone_number}` | `{message}` | Stages number in Redis, SMSes 6-digit code |
 | `POST /auth/verify-phone` | ✓ | `{code}` | `{message}` | Marks `is_phone_verified` |
 | `POST /auth/resend-phone-code` | ✓ | – | `{message}` | Rotates the in-flight code |
 | `POST /auth/password/forgot` | – | `{email}` | `{message}` | Always 200 (no enumeration) |

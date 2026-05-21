@@ -8,7 +8,7 @@ Five files for [Bruno](https://www.usebruno.com/):
 | `environments/Local.bru` | Bruno-native environment with `base_url`, `access_token`, `refresh_token`, and other slugs/IDs. Selected via Bruno's top-right environment dropdown. |
 | `edure.collection.json` | Postman Collection v2.1 — Auth, Onboarding, Home, Explore, Reviews, My Learnings, Notes, Downloads, Activity, Video Streaming, Instructor, Assessments, Degree, Account & Settings, **Payments**, Admin. Auto-token-capture scripts on key requests. The Video Streaming folder is HLS-only for lessons (direct-MP4 endpoint removed). Import once into Bruno to populate the request tree. |
 | `edure.environment.json` | Postman-format environment kept alongside the collection for one-shot import. The `.bru` file under `environments/` is the source of truth once you're inside Bruno. |
-| `openapi.json` | Raw OpenAPI 3 spec exported from the live API (for tools that prefer OpenAPI) — regenerate after adding endpoints with `curl http://localhost:8000/api/v1/openapi.json -o bruno/openapi.json`. Bruno can also import this directly via **Import Collection → OpenAPI**. |
+| `openapi.json` | Raw OpenAPI 3 spec exported from the live API (for tools that prefer OpenAPI) — regenerate after adding endpoints with `curl http://localhost:8080/api/v1/openapi.json -o bruno/openapi.json`. Bruno can also import this directly via **Import Collection → OpenAPI**. |
 
 ## Open in Bruno
 
@@ -144,7 +144,7 @@ These endpoints require a user with `role=instructor` (or `admin`) — `auth/reg
 ## Re-export OpenAPI
 
 ```bash
-curl http://localhost:8000/api/v1/openapi.json -o bruno/openapi.json
+curl http://localhost:8080/api/v1/openapi.json -o bruno/openapi.json
 ```
 
 Bruno can also import the OpenAPI file directly (**Import Collection → OpenAPI**), but you lose the post-response scripts and pre-set environment values that the curated collection provides.

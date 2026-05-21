@@ -27,6 +27,7 @@ from app.models.auth import (
 )
 from app.models.user import NotificationPreference, User
 from app.utils.email import send_email
+from app.utils.sms import send_sms
 
 logger = get_logger(__name__)
 
@@ -336,7 +337,10 @@ async def set_phone_number(
     user: User,
     phone_number: str,
 ) -> None:
-    """Stash an unverified phone + freshly-minted code in Redis and email it.
+    """Stash an unverified phone + freshly-minted code in Redis and deliver it.
+
+    Delivery is over SMS when ``USE_SMS_PROVIDER`` is true, otherwise the code
+    is emailed to the user's account email (dev-friendly fallback).
 
     Nothing is written to ``users`` until :func:`verify_phone` succeeds — so
     if the user mistypes, walks away, or never finishes, no half-state
@@ -364,7 +368,11 @@ async def set_phone_number(
 
 
 async def _issue_phone_code(redis: Redis, user: User, phone_number: str) -> str:
-    """Mint a code, write {phone, code_hash, attempts=0} into Redis, email it.
+    """Mint a code, write {phone, code_hash, attempts=0} into Redis, deliver it.
+
+    Delivery channel is gated by ``settings.USE_SMS_PROVIDER`` — True hits the
+    configured SMS backend, False emails the code to the user's account email
+    so local development doesn't need a real provider or a working number.
 
     Returns the raw code (only useful in tests). Resets the attempt counter
     on every issuance, so resends start fresh.
@@ -387,22 +395,33 @@ async def _issue_phone_code(redis: Redis, user: User, phone_number: str) -> str:
     pipe.expire(key, ttl_seconds)
     await pipe.execute()
 
-    # Until SMS is wired in, deliver the code via email — explicit about the
-    # stand-in so the user isn't confused by getting an email instead of a
-    # text. Swap this branch for an SMS provider call when ready.
-    try:
-        await send_email(
-            to=user.email,
-            subject=f"Your {settings.PROJECT_NAME} phone verification code",
-            body_text=(
-                f"Hi {user.full_name},\n\n"
-                f"Your phone verification code is: {code}\n\n"
-                f"It expires in {settings.PHONE_VERIFY_EXPIRE_MINUTES} minutes.\n"
-                "(SMS delivery is not yet enabled — codes are temporarily emailed instead.)"
-            ),
-        )
-    except Exception:  # noqa: BLE001
-        logger.exception("phone_code_email_send_failed", user_id=str(user.id))
+    if settings.USE_SMS_PROVIDER:
+        # Body stays under 160 chars so it ships as a single SMS segment —
+        # keeps cost predictable and avoids per-country splitting quirks.
+        try:
+            await send_sms(
+                to=phone_number,
+                body=(
+                    f"{settings.PROJECT_NAME}: your verification code is {code}. "
+                    f"Expires in {settings.PHONE_VERIFY_EXPIRE_MINUTES} min."
+                ),
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("phone_code_sms_send_failed", user_id=str(user.id))
+    else:
+        try:
+            await send_email(
+                to=user.email,
+                subject=f"Your {settings.PROJECT_NAME} phone verification code",
+                body_text=(
+                    f"Hi {user.full_name},\n\n"
+                    f"Your phone verification code is: {code}\n\n"
+                    f"It expires in {settings.PHONE_VERIFY_EXPIRE_MINUTES} minutes.\n"
+                    "(SMS delivery is disabled in this environment — codes are emailed instead.)"
+                ),
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("phone_code_email_send_failed", user_id=str(user.id))
     return code
 
 

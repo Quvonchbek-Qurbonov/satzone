@@ -129,7 +129,10 @@ async def submit_phone(
     session: DbSession,
     redis: RedisDep,
 ) -> Message:
-    """Stash a phone number + freshly-minted code in Redis and email it.
+    """Stash a phone number + freshly-minted code in Redis and deliver it.
+
+    Delivery is SMS when ``USE_SMS_PROVIDER`` is enabled in the environment,
+    otherwise the code is emailed to the user's account email (dev fallback).
 
     Re-callable until the phone is verified, so the user can correct a typo.
     Once ``is_phone_verified`` is true the endpoint refuses with

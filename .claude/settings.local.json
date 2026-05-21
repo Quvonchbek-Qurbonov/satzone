@@ -68,7 +68,15 @@
       "Bash(git -C \"D:/Project/satzone\" mv postman bruno)",
       "Bash(git -C \"D:/Project/satzone\" mv \"bruno/edure.postman_collection.json\" \"bruno/edure.collection.json\")",
       "Bash(git -C \"D:/Project/satzone\" mv \"bruno/edure.postman_environment.json\" \"bruno/edure.environment.json\")",
-      "Bash(git *)"
+      "Bash(git *)",
+      "PowerShell(Get-NetTCPConnection *)",
+      "Bash(docker version *)",
+      "Bash(findstr /I \"SMS BREVO\")",
+      "Bash(docker --version)",
+      "PowerShell(netsh interface *)",
+      "Bash(python3 -)",
+      "Bash(docker cp *)",
+      "PowerShell(docker cp scripts/test_use_sms_provider.py satzone-api-1:/app/test_use_sms_provider.py; docker compose exec -T api python /app/test_use_sms_provider.py)"
     ]
   }
 }
