@@ -1,8 +1,8 @@
 {
   "info": {
-    "_postman_id": "9b1f8c00-edure-collection",
-    "name": "Edure API",
-    "description": "Production-ready Edure backend covering Sign Up, Onboarding, Home, Explore, Course Detail, My Learnings, Degree, and Account & Settings.\n\n**Setup**:\n1. Import this collection and the `Edure (local)` environment.\n2. Select that environment (top-right).\n3. Register an account via **Auth → Register** (and verify the email) — then set `user_email` / `user_password` in the environment.\n4. Run **Auth → Login** — `access_token` and `refresh_token` are captured automatically.\n5. All other requests inherit Bearer auth from the collection.\n\nDefault env values target the local docker-compose stack at `http://localhost:8000`.",
+    "_postman_id": "9b1f8c00-satzone-collection",
+    "name": "SATZone API",
+    "description": "Production-ready SATZone backend covering Sign Up, Onboarding, Home, Explore, Course Detail, My Learnings, Degree, and Account & Settings.\n\n**Setup**:\n1. Import this collection and the `SATZone (local)` environment.\n2. Select that environment (top-right).\n3. Register an account via **Auth → Register** (and verify the email) — then set `user_email` / `user_password` in the environment.\n4. Run **Auth → Login** — `access_token` and `refresh_token` are captured automatically.\n5. All other requests inherit Bearer auth from the collection.\n\nDefault env values target the local docker-compose stack at `http://localhost:8080`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -77,7 +77,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"new-user-{{$timestamp}}@edure.local\",\n  \"full_name\": \"New User\",\n  \"password\": \"Sup3rSecret!\"\n}"
+              "raw": "{\n  \"email\": \"new-user-{{$timestamp}}@satzone.local\",\n  \"full_name\": \"New User\",\n  \"password\": \"Sup3rSecret!\"\n}"
             },
             "url": "{{base_url}}/auth/register"
           }
@@ -2812,6 +2812,37 @@
           "request": {
             "method": "DELETE",
             "url": "{{base_url}}/admin/certificates/{{certificate_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Internal",
+      "description": "Server-to-server endpoints used by trusted callers (Telegram bot, internal jobs). Auth is the shared `X-Internal-API-Key` header — set `internal_api_key` in the environment. Bearer auth on these requests is overridden to `noauth`.",
+      "item": [
+        {
+          "name": "Lookup user by phone",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Internal-API-Key",
+                "value": "{{internal_api_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone_number\": \"{{user_phone}}\"\n}"
+            },
+            "url": "{{base_url}}/internal/users/lookup-by-phone",
+            "description": "Returns the user matching `phone_number` (E.164). 404 `user_not_found` if no match. 401 `invalid_api_key` if the header is wrong; 401 `internal_not_configured` if `INTERNAL_API_KEY` is unset on the server."
           }
         }
       ]

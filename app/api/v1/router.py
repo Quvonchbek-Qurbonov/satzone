@@ -17,6 +17,7 @@ from app.api.v1 import (
     home,
     instructor,
     instructors,
+    internal,
     notes,
     onboarding,
     payments,
@@ -55,3 +56,4 @@ api_router.include_router(payments.orders_router)
 api_router.include_router(payments.me_orders_router)
 api_router.include_router(payments.payme_router)
 api_router.include_router(admin.router)
+api_router.include_router(internal.router)

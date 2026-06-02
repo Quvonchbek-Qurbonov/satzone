@@ -1,6 +1,6 @@
-# Edure backend
+# SATZone backend
 
-Production-ready FastAPI backend powering the Edure learning platform (Sign Up, Onboarding,
+Production-ready FastAPI backend powering the SATZone learning platform (Sign Up, Onboarding,
 Homepage, Explore, Detail Course, My Learnings, Degree, Account & Settings).
 
 ## Stack

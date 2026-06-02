@@ -39,8 +39,8 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    # No host port mapping — the api talks to redis over the docker network
+    # at redis:6379. Avoids clashing with a local Memurai/Redis on the host.
     volumes:
       - redis_data:/data
     healthcheck:

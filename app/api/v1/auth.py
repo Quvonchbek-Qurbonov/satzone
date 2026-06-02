@@ -7,8 +7,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app.api.deps import CurrentUserAny
 from app.core.config import settings
-from app.core.exceptions import AppError
-from app.core.security import create_oauth_state, verify_oauth_state
+from app.core.exceptions import AppError, UnauthorizedError
+from app.core.security import consteq, create_oauth_state, verify_oauth_state
 from app.db.deps import DbSession
 from app.middleware.rate_limit import rate_limit_auth
 from app.redis_client import RedisDep
@@ -193,16 +193,35 @@ async def me(user: CurrentUserAny) -> UserMe:
 
 # ---------- Google OAuth ----------
 
+# Browser-bound CSRF cookie for the OAuth state. The same signed state JWT goes
+# in both the cookie and the `state=` query param; on callback we require an
+# exact match before trusting the state. Path is scoped to the callback so the
+# cookie is not sent on unrelated requests. SameSite=Lax is required (not
+# Strict) because the cookie has to survive the top-level redirect from Google.
+_OAUTH_STATE_COOKIE = "oauth_state"
+_OAUTH_STATE_COOKIE_MAX_AGE = 600  # seconds; matches create_oauth_state() TTL
+_OAUTH_STATE_COOKIE_PATH = f"{settings.API_V1_PREFIX}/auth/google/callback"
+
 
 @router.get("/google/login")
 async def google_login() -> RedirectResponse:
     """Start the Google OAuth dance: redirects the browser to Google's consent screen."""
     google_oauth_service.ensure_configured()
     state = create_oauth_state()
-    return RedirectResponse(
+    response = RedirectResponse(
         url=google_oauth_service.build_authorization_url(state),
         status_code=status.HTTP_307_TEMPORARY_REDIRECT,
     )
+    response.set_cookie(
+        key=_OAUTH_STATE_COOKIE,
+        value=state,
+        max_age=_OAUTH_STATE_COOKIE_MAX_AGE,
+        httponly=True,
+        secure=settings.is_production,
+        samesite="lax",
+        path=_OAUTH_STATE_COOKIE_PATH,
+    )
+    return response
 
 
 @router.get("/google/callback", include_in_schema=False)
@@ -218,14 +237,29 @@ async def google_callback(
     reaches the server, so the SPA can read it from ``window.location.hash``
     without leaking tokens to access logs or referers."""
     frontend_cb = f"{settings.FRONTEND_URL.rstrip('/')}/auth/google/callback"
+
+    def _error_redirect(err: AppError) -> RedirectResponse:
+        resp = RedirectResponse(
+            url=f"{frontend_cb}#error={err.code}&error_description={quote(err.message)}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+        resp.delete_cookie(_OAUTH_STATE_COOKIE, path=_OAUTH_STATE_COOKIE_PATH)
+        return resp
+
+    cookie_state = request.cookies.get(_OAUTH_STATE_COOKIE)
+    if not cookie_state or not consteq(cookie_state, state):
+        return _error_redirect(
+            UnauthorizedError(
+                "OAuth state cookie missing or mismatched",
+                code="invalid_oauth_state",
+            )
+        )
+
     try:
         verify_oauth_state(state)
         user = await google_oauth_service.complete_oauth_flow(session, code)
     except AppError as exc:
-        return RedirectResponse(
-            url=f"{frontend_cb}#error={exc.code}&error_description={quote(exc.message)}",
-            status_code=status.HTTP_303_SEE_OTHER,
-        )
+        return _error_redirect(exc)
 
     from app.services import auth_service
 
@@ -236,4 +270,6 @@ async def google_callback(
         f"&refresh_token={tokens['refresh_token']}"
         f"&expires_in={tokens['expires_in']}"
     )
-    return RedirectResponse(url=handoff, status_code=status.HTTP_303_SEE_OTHER)
+    response = RedirectResponse(url=handoff, status_code=status.HTTP_303_SEE_OTHER)
+    response.delete_cookie(_OAUTH_STATE_COOKIE, path=_OAUTH_STATE_COOKIE_PATH)
+    return response

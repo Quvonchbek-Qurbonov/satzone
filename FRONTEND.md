@@ -1,4 +1,4 @@
-# Edure Backend — Frontend Integration Guide
+# SATZone Backend — Frontend Integration Guide
 
 A self-contained reference for the frontend (web/mobile) team. Read this before
 wiring API calls; it covers the conventions every endpoint follows, the auth

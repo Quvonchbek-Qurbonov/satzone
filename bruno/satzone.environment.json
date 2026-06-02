@@ -1,6 +1,6 @@
 {
-  "id": "1d5e6c9a-edure-local-env",
-  "name": "Edure (local)",
+  "id": "1d5e6c9a-satzone-local-env",
+  "name": "SATZone (local)",
   "values": [
     {
       "key": "base_url",
@@ -256,6 +256,12 @@
     },
     {
       "key": "payme_key",
+      "value": "",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "internal_api_key",
       "value": "",
       "type": "secret",
       "enabled": true

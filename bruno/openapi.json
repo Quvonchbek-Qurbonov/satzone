@@ -9044,6 +9044,65 @@
           }
         }
       }
+    },
+    "/api/v1/internal/users/lookup-by-phone": {
+      "post": {
+        "tags": [
+          "internal"
+        ],
+        "summary": "Lookup User By Phone",
+        "operationId": "lookup_user_by_phone_api_v1_internal_users_lookup_by_phone_post",
+        "parameters": [
+          {
+            "name": "X-Internal-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Internal-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneLookupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhoneLookupResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -15630,6 +15689,56 @@
           "card"
         ],
         "title": "PaymentProvider"
+      },
+      "PhoneLookupRequest": {
+        "properties": {
+          "phone_number": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 4,
+            "title": "Phone Number"
+          }
+        },
+        "type": "object",
+        "required": [
+          "phone_number"
+        ],
+        "title": "PhoneLookupRequest"
+      },
+      "PhoneLookupResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "is_phone_verified": {
+            "type": "boolean",
+            "title": "Is Phone Verified"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "full_name",
+          "is_active",
+          "is_phone_verified"
+        ],
+        "title": "PhoneLookupResponse"
       },
       "PhoneSubmitRequest": {
         "properties": {

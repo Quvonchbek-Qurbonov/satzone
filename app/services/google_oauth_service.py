@@ -14,6 +14,7 @@ from urllib.parse import urlencode
 
 import httpx
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -98,6 +99,19 @@ async def _fetch_userinfo(access_token: str) -> dict[str, Any]:
     return resp.json()
 
 
+async def _lookup_user(
+    session: AsyncSession, sub: str, email: str
+) -> User | None:
+    user = (
+        await session.execute(select(User).where(User.google_sub == sub))
+    ).scalar_one_or_none()
+    if user is not None:
+        return user
+    return (
+        await session.execute(select(User).where(User.email == email))
+    ).scalar_one_or_none()
+
+
 async def find_or_create_user(
     session: AsyncSession, userinfo: dict[str, Any]
 ) -> User:
@@ -112,33 +126,43 @@ async def find_or_create_user(
             "Google email is not verified", code="oauth_email_not_verified"
         )
 
-    # 1) returning Google user
-    user = (
-        await session.execute(select(User).where(User.google_sub == sub))
-    ).scalar_one_or_none()
+    user = await _lookup_user(session, sub, email)
 
-    # 2) link by email — same person who registered with email/password earlier
-    if user is None:
-        user = (
-            await session.execute(select(User).where(User.email == email))
-        ).scalar_one_or_none()
-        if user is not None:
-            user.google_sub = sub
+    # 2) link by email — same person who registered with email/password earlier.
+    # Wrapped in a savepoint so a concurrent Google login for the same row that
+    # already won the link race doesn't 500 us with IntegrityError on google_sub.
+    if user is not None and user.google_sub is None:
+        try:
+            async with session.begin_nested():
+                user.google_sub = sub
+        except IntegrityError:
+            user = await _lookup_user(session, sub, email)
 
-    # 3) net-new user
+    # 3) net-new user — savepoint + re-query covers the case where two
+    # concurrent first-time logins for the same Google account both miss the
+    # SELECT above and race on the unique(google_sub) / unique(email) inserts.
     if user is None:
-        user = User(
-            email=email,
-            password_hash=None,
-            full_name=userinfo.get("name") or email.split("@")[0],
-            avatar_url=userinfo.get("picture"),
-            google_sub=sub,
-            is_verified=True,
-            email_verified_at=datetime.now(tz=UTC),
-        )
-        session.add(user)
-        await session.flush()
-        session.add(NotificationPreference(user_id=user.id))
+        try:
+            async with session.begin_nested():
+                user = User(
+                    email=email,
+                    password_hash=None,
+                    full_name=userinfo.get("name") or email.split("@")[0],
+                    avatar_url=userinfo.get("picture"),
+                    google_sub=sub,
+                    is_verified=True,
+                    email_verified_at=datetime.now(tz=UTC),
+                )
+                session.add(user)
+                await session.flush()
+                session.add(NotificationPreference(user_id=user.id))
+        except IntegrityError:
+            user = await _lookup_user(session, sub, email)
+            if user is None:
+                raise UnauthorizedError(
+                    "Failed to provision Google user",
+                    code="oauth_user_provision_failed",
+                )
 
     if not user.is_verified:
         # email matched an unverified pre-existing account; Google has verified it.

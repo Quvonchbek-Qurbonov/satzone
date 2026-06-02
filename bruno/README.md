@@ -6,15 +6,15 @@ Five files for [Bruno](https://www.usebruno.com/):
 | ---- | ------- |
 | `bruno.json` | Bruno collection config — point Bruno → **Open Collection** at this directory and Bruno will treat it as the collection root. |
 | `environments/Local.bru` | Bruno-native environment with `base_url`, `access_token`, `refresh_token`, and other slugs/IDs. Selected via Bruno's top-right environment dropdown. |
-| `edure.collection.json` | Postman Collection v2.1 — Auth, Onboarding, Home, Explore, Reviews, My Learnings, Notes, Downloads, Activity, Video Streaming, Instructor, Assessments, Degree, Account & Settings, **Payments**, Admin. Auto-token-capture scripts on key requests. The Video Streaming folder is HLS-only for lessons (direct-MP4 endpoint removed). Import once into Bruno to populate the request tree. |
-| `edure.environment.json` | Postman-format environment kept alongside the collection for one-shot import. The `.bru` file under `environments/` is the source of truth once you're inside Bruno. |
+| `satzone.collection.json` | Postman Collection v2.1 — Auth, Onboarding, Home, Explore, Reviews, My Learnings, Notes, Downloads, Activity, Video Streaming, Instructor, Assessments, Degree, Account & Settings, **Payments**, Admin, **Internal**. Auto-token-capture scripts on key requests. The Video Streaming folder is HLS-only for lessons (direct-MP4 endpoint removed). Import once into Bruno to populate the request tree. |
+| `satzone.environment.json` | Postman-format environment kept alongside the collection for one-shot import. The `.bru` file under `environments/` is the source of truth once you're inside Bruno. |
 | `openapi.json` | Raw OpenAPI 3 spec exported from the live API (for tools that prefer OpenAPI) — regenerate after adding endpoints with `curl http://localhost:8080/api/v1/openapi.json -o bruno/openapi.json`. Bruno can also import this directly via **Import Collection → OpenAPI**. |
 
 ## Open in Bruno
 
 1. Bruno → **Open Collection** → select the `bruno/` directory. Bruno reads `bruno.json` and shows the `Local` environment under `environments/`.
 2. Top-right environment dropdown → **Local**. Fill in `user_password` (marked secret) if you want auth tests to run.
-3. First time only — bring the requests in: Bruno → **Import Collection** → choose `edure.collection.json`. Bruno converts the Postman v2.1 file into `.bru` requests under the collection. (`openapi.json` works too if you'd rather start from the spec.)
+3. First time only — bring the requests in: Bruno → **Import Collection** → choose `satzone.collection.json`. Bruno converts the Postman v2.1 file into `.bru` requests under the collection. (`openapi.json` works too if you'd rather start from the spec.)
 4. Make sure the stack is up: `docker compose up -d`.
 5. Run **Auth → Login (captures tokens)**.
    - Post-response script writes `access_token` and `refresh_token` into the active environment.
@@ -26,7 +26,7 @@ running auth-gated requests. Set `user_email` / `user_password` in the
 
 ### Postman ↔ Bruno script compatibility
 
-The auto-capture scripts in `edure.collection.json` use the Postman API (`pm.environment.set(...)`, `pm.test(...)`). Bruno ships a Postman-compat shim so these run unchanged after import; if you ever rewrite them in Bruno-native style, the equivalents are:
+The auto-capture scripts in `satzone.collection.json` use the Postman API (`pm.environment.set(...)`, `pm.test(...)`). Bruno ships a Postman-compat shim so these run unchanged after import; if you ever rewrite them in Bruno-native style, the equivalents are:
 
 | Postman | Bruno |
 | ------- | ----- |
@@ -108,6 +108,30 @@ docker compose exec db psql -U satzone -d satzone -c "UPDATE users SET role='adm
 ```
 
 After that, log in as the admin (Auth → Login) and every Admin request inherits the bearer token.
+
+### Internal API (Telegram bot / S2S)
+
+The **Internal** folder holds server-to-server endpoints that bypass user
+auth and use a shared `X-Internal-API-Key` header instead. They're meant
+for trusted callers (the Telegram bot, internal jobs) — never expose the
+key to the frontend.
+
+1. Generate a key once: `openssl rand -hex 32`, put it in the backend's
+   `.env` as `INTERNAL_API_KEY=…`, restart the api container.
+2. In Bruno, paste the same value into the `internal_api_key` secret env
+   var (top-right environment dropdown → edit).
+3. **Internal → Lookup user by phone** — POSTs `{phone_number}` (E.164)
+   and returns `{id, email, full_name, is_active, is_phone_verified}`.
+   `user_phone` is reused from the auth flow, so a single value drives
+   both Verify phone and the bot lookup.
+
+Failure modes worth knowing:
+
+| HTTP | code | meaning |
+| ---- | ---- | ------- |
+| 401  | `internal_not_configured` | `INTERNAL_API_KEY` is empty on the server — fix the `.env` and restart |
+| 401  | `invalid_api_key` | Bruno's `internal_api_key` doesn't match the server's |
+| 404  | `user_not_found` | Number is unknown — bot should prompt the user to register/verify |
 
 A typical content-management run:
 

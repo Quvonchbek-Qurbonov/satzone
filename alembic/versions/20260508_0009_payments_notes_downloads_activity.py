@@ -4,7 +4,7 @@ Revision ID: 0009
 Revises: 0008
 Create Date: 2026-05-08
 
-Closes the gap between the Edure designs and the backend:
+Closes the gap between the SATZone designs and the backend:
 
 * Payments domain — ``payment_methods``, ``orders``, ``transactions`` plus the
   five enums Payme's merchant API needs (``order_status``, ``order_item_kind``,

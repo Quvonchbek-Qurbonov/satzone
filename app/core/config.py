@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     LOG_JSON: bool = False
 
-    PROJECT_NAME: str = "Edure"
+    PROJECT_NAME: str = "SATZone"
     API_V1_PREFIX: str = "/api/v1"
     BACKEND_CORS_ORIGINS: list[str] = Field(default_factory=list)
 
@@ -51,8 +51,8 @@ class Settings(BaseSettings):
     RATE_LIMIT_DEFAULT_PER_MINUTE: int = 120
 
     MAIL_BACKEND: Literal["console", "smtp", "brevo"] = "console"
-    MAIL_FROM: str = "no-reply@edure.local"
-    MAIL_FROM_NAME: str = "Edure"
+    MAIL_FROM: str = "no-reply@satzone.local"
+    MAIL_FROM_NAME: str = "SATZone"
     SMTP_HOST: str | None = None
     SMTP_PORT: int = 587
     SMTP_USER: str | None = None
@@ -75,13 +75,19 @@ class Settings(BaseSettings):
     # endpoint — requires INFOBIP_API_KEY and the personalized
     # INFOBIP_BASE_URL given on signup.
     SMS_BACKEND: Literal["console", "brevo", "infobip"] = "console"
-    BREVO_SMS_SENDER: str = "Edure"
+    BREVO_SMS_SENDER: str = "SATZone"
     INFOBIP_API_KEY: str | None = None
     INFOBIP_BASE_URL: str | None = None
-    INFOBIP_SMS_SENDER: str = "Edure"
+    INFOBIP_SMS_SENDER: str = "SATZone"
 
     FRONTEND_URL: str = "http://localhost:3000"
     API_BASE_URL: str = "http://localhost:8000"
+
+    # Shared secret for the /internal/* endpoints used by trusted server-side
+    # callers (Telegram bot, internal jobs). Sent as the X-Internal-API-Key
+    # header. Empty disables those endpoints (they 401 with
+    # ``internal_not_configured``). Generate with: openssl rand -hex 32
+    INTERNAL_API_KEY: str = ""
 
     GOOGLE_CLIENT_ID: str | None = None
     GOOGLE_CLIENT_SECRET: str | None = None
