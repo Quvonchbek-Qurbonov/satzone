@@ -85,13 +85,13 @@ inbox."
 Phone is **not** part of registration. Users register with email/password,
 verify email, log in — and *then* every other authenticated endpoint
 returns `403 phone_not_verified` until they complete the phone-verify step.
-Three endpoints are deliberately reachable while the gate is active so the
-frontend can drive the flow:
+The phone number itself is captured by the **Telegram bot**, not the
+frontend — the frontend deep-links the user to the bot and then collects
+the OTP the bot shows back. Two endpoints are reachable while the gate is
+active so the frontend can drive the flow:
 
 - `GET /auth/me` — read current state (`is_phone_verified`).
-- `POST /auth/phone` — set/replace the phone number; sends a 6-digit code.
-- `POST /auth/verify-phone` — submit the code.
-- `POST /auth/resend-phone-code` — rotate the code.
+- `POST /auth/verify-phone` — submit the OTP.
 
 End-to-end:
 
@@ -101,29 +101,26 @@ End-to-end:
 3. **Login** → tokens. `UserMe.is_phone_verified === false`.
 4. **Hit any non-phone authed endpoint** → `403 phone_not_verified`.
    Treat this code as "redirect to verify-phone screen", not as a logout.
-5. **`POST /auth/phone {phone_number}`** (Bearer auth) → the number and a
-   freshly-minted 6-digit code are staged in Redis (TTL 15 min); nothing is
-   written to the user record yet. **The code is sent as an SMS to the
-   submitted number** (Brevo or Infobip transactional SMS) — show copy like
-   "We've sent a verification code to your phone." In environments where
-   `USE_SMS_PROVIDER=false` (typical for local dev) the same code is
-   emailed to the user's account email instead — the API response is
-   identical, so the frontend doesn't branch. Re-callable to fix typos
-   until verified — each call replaces the staged number and resets the
-   attempt counter.
-6. **`POST /auth/verify-phone {code}`** (Bearer auth) → on match, the staged
-   number is committed to `users.phone_number` and `is_phone_verified=true`.
-   The rest of the API is now unblocked. If the staged entry has expired or
-   doesn't exist, you get `invalid_phone_code` — bounce them back to the
-   phone-input step.
-7. **`POST /auth/resend-phone-code`** (Bearer auth, no body) when the user
-   asks for a new code. Rotates the code on the same staged number; the
-   previous code stops working. If the Redis entry has lapsed (TTL hit),
-   you get `phone_not_submitted` — drive them back to step 5.
+5. **Deep-link the user to the Telegram bot** (e.g. `https://t.me/<bot>?start=...`)
+   with copy like "Open the bot to share your phone." The user shares
+   their contact in chat; the bot calls `POST /internal/phone/issue-otp`
+   on the backend with the phone number and an `X-Internal-API-Key`. The
+   backend mints an OTP, stores `{otp → phone}` in Redis (TTL 15 min),
+   and returns the OTP. The bot shows it to the user in chat.
+6. **`POST /auth/verify-phone {otp}`** (Bearer auth) → the backend reads
+   the phone out of Redis by OTP, commits it to `users.phone_number`,
+   sets `is_phone_verified=true`, and the rest of the API unblocks. If
+   the OTP is wrong/expired you get `invalid_phone_code` — bounce the
+   user back to the bot for a fresh code. If the number was claimed by
+   someone else between issuance and verify you get `phone_taken`.
+
+The OTP is single-use and short-lived; there is no "resend" endpoint on
+the frontend — the user just opens the bot again, which re-issues a new
+OTP and invalidates the prior one for that phone.
 
 Google OAuth users land in the same gate: no phone on file, so any first
 authenticated call returns `phone_not_verified`. Route them through the
-same verify-phone flow.
+same bot flow.
 
 Phone-verify error codes:
 
@@ -131,10 +128,8 @@ Phone-verify error codes:
 | ---- | ---- | ---- |
 | 403  | `phone_not_verified` | Catch globally — redirect to verify-phone screen, do NOT logout |
 | 409  | `phone_already_verified` | Idempotent hint; stop showing the screen |
-| 409  | `phone_taken` | Another verified user owns the number — show inline error on the phone field |
-| 422  | `phone_not_submitted` | User hit verify/resend before submitting a phone — drive them back to the input step |
-| 422  | `invalid_phone_code` | Wrong / expired code — keep messaging vague |
-| 422  | `phone_code_attempts_exceeded` | 5 wrong tries — force "request a new code" |
+| 409  | `phone_taken` | Another verified user owns the number — bot should prompt for a different number or send the user to login |
+| 422  | `invalid_phone_code` | Wrong / expired OTP — bounce back to the bot for a new one |
 
 ### Google OAuth
 
@@ -192,7 +187,7 @@ Common error codes to handle by name:
 | 401  | `invalid_refresh_token` / `refresh_expired` / `token_reuse` | Force re-login |
 | 403  | `forbidden` | Generic (e.g. wrong role) |
 | 403  | `email_not_verified` | Verification gate on a non-auth route |
-| 403  | `phone_not_verified` | Redirect to verify-phone screen — applies to ALL authed endpoints except `GET /auth/me` and `/auth/phone*` |
+| 403  | `phone_not_verified` | Redirect to verify-phone screen — applies to ALL authed endpoints except `GET /auth/me` and `POST /auth/verify-phone` |
 | 403  | `not_enrolled` | Show "Enroll" CTA |
 | 403  | `instructor_role_required` | Hide instructor UI |
 | 404  | `not_found`, `*_not_found` | 404 page or empty state |
@@ -262,9 +257,9 @@ frontend handles its own UI translations.
 - **Update**: `PUT /onboarding` with `{locale: "uz"}` (or any BCP-47-ish
   short code your UI uses) — this is what onboarding's locale step writes.
 - **Default**: `"en"` until the user picks something else.
-- **Outbound content**: backend emails (verify, password reset) and the
-  phone-code SMS are English-only today; localized copy will be added when
-  content i18n lands.
+- **Outbound content**: backend emails (verify, password reset) are
+  English-only today; the Telegram bot owns its own copy. Localized copy
+  will be added when content i18n lands.
 
 When content translations land later, the existing `locale` value will drive
 which translation gets returned — same field, no migration required on the
@@ -322,9 +317,7 @@ access token is needed.
 | `POST /auth/logout` | – | `{refresh_token}` | `{message}` | Idempotent |
 | `POST /auth/verify-email` | – | `{token}` | `{message}` | Token from email link |
 | `POST /auth/resend-verification` | – | `{email}` | `{message}` | Always 200 (no enumeration) |
-| `POST /auth/phone` | ✓ | `{phone_number}` | `{message}` | Stages number in Redis, SMSes 6-digit code |
-| `POST /auth/verify-phone` | ✓ | `{code}` | `{message}` | Marks `is_phone_verified` |
-| `POST /auth/resend-phone-code` | ✓ | – | `{message}` | Rotates the in-flight code |
+| `POST /auth/verify-phone` | ✓ | `{otp}` | `{message}` | Bot mints the OTP via `/internal/phone/issue-otp`; this binds the phone to the user |
 | `POST /auth/password/forgot` | – | `{email}` | `{message}` | Always 200 (no enumeration) |
 | `POST /auth/password/reset` | – | `{token, new_password}` | `{message}` | Revokes all refresh tokens |
 | `GET  /auth/me` | ✓ | – | `UserMe` | Same payload as `GET /me` |

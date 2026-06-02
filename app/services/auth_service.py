@@ -27,7 +27,6 @@ from app.models.auth import (
 )
 from app.models.user import NotificationPreference, User
 from app.utils.email import send_email
-from app.utils.sms import send_sms
 
 logger = get_logger(__name__)
 
@@ -327,36 +326,35 @@ def _generate_phone_code() -> str:
     return f"{secrets.randbelow(upper):0{length}d}"
 
 
-def _phone_verify_key(user_id: uuid.UUID) -> str:
-    return f"phone_verify:{user_id}"
+def _otp_key(otp: str) -> str:
+    return f"phone_verify:otp:{otp}"
 
 
-async def set_phone_number(
-    session: AsyncSession,
-    redis: Redis,
-    user: User,
-    phone_number: str,
-) -> None:
-    """Stash an unverified phone + freshly-minted code in Redis and deliver it.
+def _phone_pending_key(phone: str) -> str:
+    return f"phone_verify:phone:{phone}"
 
-    Delivery is over SMS when ``USE_SMS_PROVIDER`` is true, otherwise the code
-    is emailed to the user's account email (dev-friendly fallback).
 
-    Nothing is written to ``users`` until :func:`verify_phone` succeeds — so
-    if the user mistypes, walks away, or never finishes, no half-state
-    persists past the Redis TTL.
+async def issue_phone_otp(
+    session: AsyncSession, redis: Redis, phone_number: str
+) -> tuple[str, int]:
+    """Mint an OTP for ``phone_number`` and stash the OTP↔phone pair in Redis.
+
+    Called by the Telegram bot via ``POST /internal/phone/issue-otp``. The
+    OTP is returned in the HTTP response so the bot can show it to the user
+    in chat — the backend itself does not deliver it anywhere.
+
+    Side effects:
+      * If another verified user already owns ``phone_number`` we 409 with
+        ``phone_taken`` so the bot can prompt the user to use a different
+        number (or log in to that account instead).
+      * Any prior pending OTP for the same phone is wiped first, so a single
+        phone never has two live codes — re-issuing always supersedes.
+
+    Returns ``(otp, ttl_seconds)``.
     """
-    if user.is_phone_verified:
-        raise ConflictError(
-            "Phone number is already verified — cannot be changed here",
-            code="phone_already_verified",
-        )
-    phone_clean = phone_number.strip()
     taken = (
         await session.execute(
-            select(User.id).where(
-                User.phone_number == phone_clean, User.id != user.id
-            )
+            select(User.id).where(User.phone_number == phone_number)
         )
     ).scalar_one_or_none()
     if taken is not None:
@@ -364,107 +362,57 @@ async def set_phone_number(
             "An account with this phone number already exists",
             code="phone_taken",
         )
-    await _issue_phone_code(redis, user, phone_clean)
 
-
-async def _issue_phone_code(redis: Redis, user: User, phone_number: str) -> str:
-    """Mint a code, write {phone, code_hash, attempts=0} into Redis, deliver it.
-
-    Delivery channel is gated by ``settings.USE_SMS_PROVIDER`` — True hits the
-    configured SMS backend, False emails the code to the user's account email
-    so local development doesn't need a real provider or a working number.
-
-    Returns the raw code (only useful in tests). Resets the attempt counter
-    on every issuance, so resends start fresh.
-    """
-    code = _generate_phone_code()
-    code_hash = hash_opaque_token(code)
-    key = _phone_verify_key(user.id)
     ttl_seconds = settings.PHONE_VERIFY_EXPIRE_MINUTES * 60
+    phone_key = _phone_pending_key(phone_number)
 
-    pipe = redis.pipeline()
-    pipe.delete(key)  # wipe stale fields so old codes/attempts don't bleed in
-    pipe.hset(
-        key,
-        mapping={
-            "phone_number": phone_number,
-            "code_hash": code_hash,
-            "attempts": 0,
-        },
-    )
-    pipe.expire(key, ttl_seconds)
-    await pipe.execute()
+    # Invalidate any prior OTP for this same number so the bot's last-write
+    # wins. The mapping is one-OTP-per-phone at any given time.
+    old_otp = await redis.get(phone_key)
+    if old_otp:
+        await redis.delete(_otp_key(old_otp))
 
-    if settings.USE_SMS_PROVIDER:
-        # Body stays under 160 chars so it ships as a single SMS segment —
-        # keeps cost predictable and avoids per-country splitting quirks.
-        try:
-            await send_sms(
-                to=phone_number,
-                body=(
-                    f"{settings.PROJECT_NAME}: your verification code is {code}. "
-                    f"Expires in {settings.PHONE_VERIFY_EXPIRE_MINUTES} min."
-                ),
-            )
-        except Exception:  # noqa: BLE001
-            logger.exception("phone_code_sms_send_failed", user_id=str(user.id))
+    # Random OTPs can — astronomically rarely — collide with a live one
+    # bound to a different phone. Re-roll a few times instead of clobbering.
+    for _ in range(5):
+        otp = _generate_phone_code()
+        otp_key = _otp_key(otp)
+        if await redis.set(otp_key, phone_number, ex=ttl_seconds, nx=True):
+            break
     else:
-        try:
-            await send_email(
-                to=user.email,
-                subject=f"Your {settings.PROJECT_NAME} phone verification code",
-                body_text=(
-                    f"Hi {user.full_name},\n\n"
-                    f"Your phone verification code is: {code}\n\n"
-                    f"It expires in {settings.PHONE_VERIFY_EXPIRE_MINUTES} minutes.\n"
-                    "(SMS delivery is disabled in this environment — codes are emailed instead.)"
-                ),
-            )
-        except Exception:  # noqa: BLE001
-            logger.exception("phone_code_email_send_failed", user_id=str(user.id))
-    return code
+        raise RuntimeError("Could not allocate a unique phone OTP after 5 attempts")
+
+    await redis.set(phone_key, otp, ex=ttl_seconds)
+    return otp, ttl_seconds
 
 
 async def verify_phone(
-    session: AsyncSession, redis: Redis, user: User, code: str
+    session: AsyncSession, redis: Redis, user: User, otp: str
 ) -> User:
+    """Consume an OTP minted by the bot flow and bind its phone to ``user``.
+
+    The OTP is the only thing the frontend submits — the phone is read out
+    of Redis. We re-check uniqueness right before commit so a race between
+    two users typing the same OTP (or claiming the same number through a
+    different code) becomes a clean 409 instead of an IntegrityError.
+    """
     if user.is_phone_verified:
         raise ConflictError("Phone is already verified", code="phone_already_verified")
 
-    key = _phone_verify_key(user.id)
-    data = await redis.hgetall(key)
-    if not data:
-        # Either no submission yet, or the TTL has lapsed — same UX either way:
-        # the frontend should bounce them back to the phone-input step.
+    otp_key = _otp_key(otp)
+    phone = await redis.get(otp_key)
+    if not phone:
         raise ValidationAppError(
             "Invalid or expired verification code", code="invalid_phone_code"
         )
 
-    attempts = int(data.get("attempts", 0))
-    if attempts >= settings.PHONE_VERIFY_MAX_ATTEMPTS:
-        raise ValidationAppError(
-            "Too many incorrect attempts — request a new code",
-            code="phone_code_attempts_exceeded",
-        )
-
-    if not secrets.compare_digest(data["code_hash"], hash_opaque_token(code)):
-        await redis.hincrby(key, "attempts", 1)
-        raise ValidationAppError(
-            "Invalid or expired verification code", code="invalid_phone_code"
-        )
-
-    phone = data["phone_number"]
-
-    # Re-check uniqueness before commit — another user could have verified the
-    # same number while this code was outstanding. The unique index is the
-    # ultimate safety net; this just turns the race into a clean 409.
     taken = (
         await session.execute(
             select(User.id).where(User.phone_number == phone, User.id != user.id)
         )
     ).scalar_one_or_none()
     if taken is not None:
-        await redis.delete(key)
+        await redis.delete(otp_key, _phone_pending_key(phone))
         raise ConflictError(
             "An account with this phone number already exists",
             code="phone_taken",
@@ -475,24 +423,8 @@ async def verify_phone(
     user.is_phone_verified = True
     user.phone_verified_at = now
     await session.commit()
-    await redis.delete(key)
+    await redis.delete(otp_key, _phone_pending_key(phone))
     return user
-
-
-async def resend_phone_code(
-    session: AsyncSession, redis: Redis, user: User
-) -> None:
-    """Re-issue the current user's phone-verification code using the phone
-    they previously submitted (still in Redis)."""
-    if user.is_phone_verified:
-        raise ConflictError("Phone is already verified", code="phone_already_verified")
-    phone = await redis.hget(_phone_verify_key(user.id), "phone_number")
-    if not phone:
-        raise ValidationAppError(
-            "No phone number on file — submit one via POST /auth/phone first",
-            code="phone_not_submitted",
-        )
-    await _issue_phone_code(redis, user, phone)
 
 
 async def request_password_reset(session: AsyncSession, email: str) -> None:

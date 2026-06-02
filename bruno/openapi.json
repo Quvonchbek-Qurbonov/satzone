@@ -340,59 +340,13 @@
         }
       }
     },
-    "/api/v1/auth/phone": {
-      "post": {
-        "tags": [
-          "auth"
-        ],
-        "summary": "Submit Phone",
-        "description": "Stash a phone number + freshly-minted code in Redis and deliver it.\n\nDelivery is SMS when ``USE_SMS_PROVIDER`` is enabled in the environment,\notherwise the code is emailed to the user's account email (dev fallback).\n\nRe-callable until the phone is verified, so the user can correct a typo.\nOnce ``is_phone_verified`` is true the endpoint refuses with\n``phone_already_verified``. The phone is **not** persisted to ``users``\nuntil ``/auth/verify-phone`` succeeds.",
-        "operationId": "submit_phone_api_v1_auth_phone_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PhoneSubmitRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Message"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
     "/api/v1/auth/verify-phone": {
       "post": {
         "tags": [
           "auth"
         ],
         "summary": "Verify Phone",
+        "description": "Consume an OTP minted by the Telegram bot (via POST /internal/phone/issue-otp) and bind its phone to the current user. The phone is looked up in Redis by OTP — no phone field is accepted here. Rate-limited per IP via the router-level rate_limit_auth dep.",
         "operationId": "verify_phone_api_v1_auth_verify_phone_post",
         "requestBody": {
           "content": {
@@ -421,32 +375,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/auth/resend-phone-code": {
-      "post": {
-        "tags": [
-          "auth"
-        ],
-        "summary": "Resend Phone Code",
-        "operationId": "resend_phone_code_api_v1_auth_resend_phone_code_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Message"
                 }
               }
             }
@@ -9103,6 +9031,66 @@
           }
         }
       }
+    },
+    "/api/v1/internal/phone/issue-otp": {
+      "post": {
+        "tags": [
+          "internal"
+        ],
+        "summary": "Issue Phone Otp",
+        "description": "Mint a one-time code for a phone number on behalf of the Telegram bot. The bot receives the user's shared contact in chat, calls this endpoint with the E.164 number, and shows the returned OTP back to the user. The user types it into the frontend, which hits POST /auth/verify-phone. Returns 409 phone_taken if the number is already verified on another account.",
+        "operationId": "issue_phone_otp_api_v1_internal_phone_issue_otp_post",
+        "parameters": [
+          {
+            "name": "X-Internal-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Internal-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueOtpRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssueOtpResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -15740,12 +15728,27 @@
         ],
         "title": "PhoneLookupResponse"
       },
-      "PhoneSubmitRequest": {
+      "PhoneVerifyRequest": {
+        "properties": {
+          "otp": {
+            "type": "string",
+            "maxLength": 10,
+            "minLength": 4,
+            "title": "Otp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "otp"
+        ],
+        "title": "PhoneVerifyRequest"
+      },
+      "IssueOtpRequest": {
         "properties": {
           "phone_number": {
             "type": "string",
             "maxLength": 32,
-            "minLength": 8,
+            "minLength": 4,
             "title": "Phone Number"
           }
         },
@@ -15753,22 +15756,25 @@
         "required": [
           "phone_number"
         ],
-        "title": "PhoneSubmitRequest"
+        "title": "IssueOtpRequest"
       },
-      "PhoneVerifyRequest": {
+      "IssueOtpResponse": {
         "properties": {
-          "code": {
+          "otp": {
             "type": "string",
-            "maxLength": 10,
-            "minLength": 4,
-            "title": "Code"
+            "title": "Otp"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In"
           }
         },
         "type": "object",
         "required": [
-          "code"
+          "otp",
+          "expires_in"
         ],
-        "title": "PhoneVerifyRequest"
+        "title": "IssueOtpResponse"
       },
       "PreviewPlaybackResponse": {
         "properties": {

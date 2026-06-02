@@ -40,9 +40,9 @@ async def get_current_user_any(
     """Authenticated user — does NOT require phone verification.
 
     Use this on endpoints that must work during the phone-verification flow
-    itself (``GET /auth/me``, ``POST /auth/phone``, ``POST /auth/verify-phone``,
-    ``POST /auth/resend-phone-code``). Every other authenticated endpoint
-    should depend on :data:`CurrentUser` so the phone gate is enforced.
+    itself (``GET /auth/me``, ``POST /auth/verify-phone``). Every other
+    authenticated endpoint should depend on :data:`CurrentUser` so the phone
+    gate is enforced.
     """
     return await _resolve_user(session, credentials)
 

@@ -10,7 +10,7 @@ Homepage, Explore, Detail Course, My Learnings, Degree, Account & Settings).
 - Argon2 password hashing, JWT access + opaque rotating refresh tokens
 - Structured logging (structlog), per-request IDs, sliding-window rate limit
 - Pluggable email backend (console for dev, SMTP/Brevo for prod)
-- Pluggable SMS backend for phone-verification codes (Brevo or Infobip in prod) with a `USE_SMS_PROVIDER=false` dev mode that emails the OTP instead
+- Phone verification via a Telegram bot — bot calls `POST /internal/phone/issue-otp` (shared `X-Internal-API-Key`) to mint OTPs and displays them to the user in chat; no SMS gateway in the loop
 - Pluggable media storage (local disk for dev, AWS S3 with presigned URLs for prod)
 - Protected video streaming: auth-gated byte-range proxy + HLS/AES-128 packaging + DRM seam
 
@@ -210,7 +210,7 @@ The auth smoke test self-skips if the DB isn't migrated.
 - [ ] Set a strong `JWT_SECRET_KEY` (`python -c "import secrets; print(secrets.token_hex(32))"`)
 - [ ] Set `ENV=production`, `DEBUG=false`, `LOG_JSON=true`
 - [ ] Set `MAIL_BACKEND=brevo` (+ `BREVO_API_KEY`, `MAIL_FROM`, `MAIL_FROM_NAME`) or `MAIL_BACKEND=smtp` and configure SMTP_*
-- [ ] Set `USE_SMS_PROVIDER=true` and pick a real `SMS_BACKEND` (`brevo` with `BREVO_API_KEY` + approved `BREVO_SMS_SENDER`, or `infobip` with `INFOBIP_API_KEY` + `INFOBIP_BASE_URL` + approved `INFOBIP_SMS_SENDER`) so phone-verification codes ship as real SMS instead of email
+- [ ] Set `INTERNAL_API_KEY` and deploy the Telegram bot — phone verification mints OTPs via `POST /internal/phone/issue-otp` (called by the bot) and the bot displays the OTP to the user in chat; the user then submits it to `POST /auth/verify-phone`
 - [ ] Set `STORAGE_BACKEND=s3` and configure `AWS_*` (bucket should keep "Block all public access" — the API serves via presigned URLs); add CloudFront in front and set `AWS_S3_PUBLIC_BASE_URL` for cheap streaming
 - [ ] Restrict `BACKEND_CORS_ORIGINS` to known frontend hosts
 - [ ] Run behind a reverse proxy that sets `X-Forwarded-For` (rate limiter relies on it)

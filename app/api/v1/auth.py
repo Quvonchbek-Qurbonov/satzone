@@ -20,7 +20,6 @@ from app.schemas.auth import (
     LogoutRequest,
     PasswordResetConfirm,
     PasswordResetRequest,
-    PhoneSubmitRequest,
     PhoneVerifyRequest,
     RefreshRequest,
     RegisterRequest,
@@ -122,32 +121,6 @@ async def resend_verification(payload: ResendVerifyRequest, session: DbSession) 
     return Message(message="If the account exists and is unverified, a new verification email was sent")
 
 
-@router.post("/phone", response_model=Message)
-async def submit_phone(
-    payload: PhoneSubmitRequest,
-    user: CurrentUserAny,
-    session: DbSession,
-    redis: RedisDep,
-) -> Message:
-    """Stash a phone number + freshly-minted code in Redis and deliver it.
-
-    Delivery is SMS when ``USE_SMS_PROVIDER`` is enabled in the environment,
-    otherwise the code is emailed to the user's account email (dev fallback).
-
-    Re-callable until the phone is verified, so the user can correct a typo.
-    Once ``is_phone_verified`` is true the endpoint refuses with
-    ``phone_already_verified``. The phone is **not** persisted to ``users``
-    until ``/auth/verify-phone`` succeeds.
-    """
-    await auth_service.set_phone_number(
-        session=session,
-        redis=redis,
-        user=user,
-        phone_number=payload.phone_number,
-    )
-    return Message(message="Verification code sent")
-
-
 @router.post("/verify-phone", response_model=Message)
 async def verify_phone(
     payload: PhoneVerifyRequest,
@@ -155,18 +128,21 @@ async def verify_phone(
     session: DbSession,
     redis: RedisDep,
 ) -> Message:
+    """Consume an OTP minted by the Telegram bot and bind its phone to the user.
+
+    The bot calls ``POST /internal/phone/issue-otp`` with the phone number
+    shared in chat; the backend stores ``otp → phone`` in Redis and returns
+    the OTP for the bot to display. The user types it here, the phone is
+    looked up by OTP, and on success it lands on ``users.phone_number`` with
+    ``is_phone_verified=True``. The endpoint is rate-limited per IP via the
+    router-level ``rate_limit_auth`` dep, which is the only brake on OTP
+    guessing — keep ``PHONE_CODE_LENGTH`` long enough that brute-forcing
+    within the TTL stays infeasible (default 8 digits).
+    """
     await auth_service.verify_phone(
-        session=session, redis=redis, user=user, code=payload.code
+        session=session, redis=redis, user=user, otp=payload.otp
     )
     return Message(message="Phone number verified")
-
-
-@router.post("/resend-phone-code", response_model=Message)
-async def resend_phone_code(
-    user: CurrentUserAny, session: DbSession, redis: RedisDep
-) -> Message:
-    await auth_service.resend_phone_code(session=session, redis=redis, user=user)
-    return Message(message="Verification code sent")
 
 
 @router.post("/password/forgot", response_model=Message)

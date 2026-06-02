@@ -99,7 +99,7 @@
       "enabled": true
     },
     {
-      "key": "phone_code",
+      "key": "phone_otp",
       "value": "",
       "type": "default",
       "enabled": true

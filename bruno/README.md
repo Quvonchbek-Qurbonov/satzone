@@ -124,6 +124,13 @@ key to the frontend.
    and returns `{id, email, full_name, is_active, is_phone_verified}`.
    `user_phone` is reused from the auth flow, so a single value drives
    both Verify phone and the bot lookup.
+4. **Internal → Issue phone OTP** — POSTs `{phone_number}` (E.164) and
+   returns `{otp, expires_in}`. The bot calls this after the user shares
+   their contact in chat; show the OTP to the user, then they enter it on
+   the frontend which hits **Auth → Verify phone** with `{otp}`. The
+   backend reads the phone back out of Redis and binds it to the current
+   user. Copy the returned `otp` into the `phone_otp` env var so the
+   Verify phone request can pick it up automatically.
 
 Failure modes worth knowing:
 
@@ -132,6 +139,7 @@ Failure modes worth knowing:
 | 401  | `internal_not_configured` | `INTERNAL_API_KEY` is empty on the server — fix the `.env` and restart |
 | 401  | `invalid_api_key` | Bruno's `internal_api_key` doesn't match the server's |
 | 404  | `user_not_found` | Number is unknown — bot should prompt the user to register/verify |
+| 409  | `phone_taken` | (issue-otp) The number is already verified on another account — bot should send the user to login instead |
 
 A typical content-management run:
 

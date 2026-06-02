@@ -71,14 +71,8 @@ class ResendVerifyRequest(BaseModel):
     email: EmailStr
 
 
-class PhoneSubmitRequest(BaseModel):
-    phone_number: str = Field(min_length=8, max_length=32)
-
-    @field_validator("phone_number")
-    @classmethod
-    def _validate_phone(cls, v: str) -> str:
-        return _normalize_phone(v)
-
-
 class PhoneVerifyRequest(BaseModel):
-    code: str = Field(min_length=4, max_length=10)
+    # OTP minted by /internal/phone/issue-otp when the Telegram bot forwards
+    # the user's shared contact. Looking it up in Redis yields the phone
+    # number; no phone field is accepted here (the bot is the only sender).
+    otp: str = Field(min_length=4, max_length=10)
