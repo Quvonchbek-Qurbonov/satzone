@@ -5,10 +5,10 @@ wiring API calls; it covers the conventions every endpoint follows, the auth
 loop, the streaming flow, and the section-by-section endpoint contracts.
 
 The OpenAPI spec at `GET /api/v1/openapi.json` (Swagger UI at
-`http://localhost:8000/docs`) is authoritative — this doc explains the *shapes
-the schema doesn't show*: the auth dance, refresh rotation, the HLS/DRM flow,
-which fields are media keys vs URLs, and the gotchas that matter when building
-a UI.
+`{base_url}/docs`) is authoritative — this doc explains the *shapes the schema
+doesn't show*: the auth dance, refresh rotation, the HLS/DRM flow, which
+fields are media keys vs URLs, and the gotchas that matter when building a
+UI. A frozen copy lives at `bruno/openapi.json` for offline codegen.
 
 ---
 
@@ -16,7 +16,8 @@ a UI.
 
 | Env | Default base URL |
 | --- | ---------------- |
-| Local Docker | `http://localhost:8000` |
+| Production   | `https://api.satzone.dev` |
+| Local Docker | `http://localhost:8080` (or `:8000` depending on your `docker-compose.yml` port mapping) |
 | API prefix   | `/api/v1` (everything below is relative to this) |
 | Static media | `/media/...` (only when `STORAGE_BACKEND=local`) |
 
@@ -298,7 +299,12 @@ All enums are lowercase strings:
 | `LessonType` | `video`, `article`, `quiz`, `resource` |
 | `QuestionType` | `single_choice`, `multi_choice`, `true_false`, `short_answer` |
 | `AssessmentStatus` | `draft`, `published`, `archived` |
+| `PracticeItemType` | `mcq`, `matching` (standalone practice quizzes — see §4.9) |
 | `HlsStatus` | `pending`, `ready`, `failed` |
+| `OrderStatus` | `pending`, `processing`, `paid`, `cancelled`, `refunded`, `failed` |
+| `OrderItemKind` | `course`, `program` |
+| `PaymentProvider` | `payme`, `card` |
+| `CardBrand` | `uzcard`, `humo`, `visa`, `mastercard`, `unknown` |
 
 ---
 
@@ -505,7 +511,259 @@ reconstruct it — show the answer key only after submission, and only if
 Score is server-computed: `score_percent`, `passed` (vs `pass_percent`), per-
 answer `awarded_points` and `is_correct`.
 
-### 4.9 Instructor management (`/instructor`, role: instructor or admin)
+### 4.9 Practice quizzes (Duolingo-style drills)
+
+A standalone, low-stakes drill system **separate from Assessments**. No
+pass/fail, no time limit, no attempt cap, no lesson gating. Each course gets
+one **pack** (auto-created the first time the instructor adds a quiz); each
+pack holds many **quizzes** (the Duolingo "lessons"); each quiz holds up to
+**50 items** of two types:
+
+- **`mcq`** — multiple choice, exactly one correct option (tap-to-pick UX).
+- **`matching`** — pair items left ↔ right (drag-to-pair / tap-to-pair UX).
+
+Access is enrollment-gated: only users who bought the course see published
+quizzes. The server strips `is_correct` from MCQ options and shuffles the
+`lefts` and `rights` of matching items before returning them — the answer key
+never reaches the client.
+
+#### Student endpoints
+
+| Method & path | Auth | Returns | Notes |
+| --- | --- | --- | --- |
+| `GET /courses/{course_id}/practice` | ✓ | `PracticePackStudentRead \| null` | Returns `null` if the instructor hasn't created a pack yet; `403 not_enrolled` if the user hasn't bought the course |
+| `GET /practice/quizzes/{quiz_id}` | ✓ | `PracticeQuizStudentRead` | 404 unless the quiz is published AND the parent course is published; 403 `not_enrolled` if not enrolled |
+| `POST /practice/quizzes/{quiz_id}/attempts` | ✓ | `PracticeAttemptResult` (201) | Grades a full play-through; unlimited replays |
+
+##### `PracticePackStudentRead`
+
+```ts
+{
+  id: string,
+  course_id: string,
+  title: string | null,
+  description: string | null,
+  quizzes: PracticeQuizStudentSummary[]   // only published quizzes, sorted by order
+}
+
+PracticeQuizStudentSummary {
+  id: string,
+  title: string,
+  description: string | null,
+  order: number,
+  is_published: true,
+  item_count: number,
+  progress: {
+    completed: boolean,                    // true once the user has attempted it
+    best_score_percent: number,            // MAX across attempts
+    attempts_count: number,
+    last_attempted_at: string | null       // ISO datetime
+  }
+}
+```
+
+##### `PracticeQuizStudentRead`
+
+Same as the summary above plus an `items: PracticeItemStudentRead[]`:
+
+```ts
+PracticeItemStudentRead {
+  id: string,
+  type: "mcq" | "matching",
+  order: number,
+  points: number,
+  data: MCQDataStudent | MatchingDataStudent
+}
+
+// MCQ — exactly one option is correct (server-side); `is_correct` is NOT exposed.
+MCQDataStudent {
+  type: "mcq",
+  prompt: string,
+  image_url: string | null,
+  options: [{ id: string, text: string, image_url: string | null }]
+}
+
+// MATCHING — sides shuffled server-side; `lefts[i].id` and `rights[j].id` are
+// the canonical pair ids, which the submission references.
+MatchingDataStudent {
+  type: "matching",
+  prompt: string,
+  lefts:  [{ id: string, text: string }],
+  rights: [{ id: string, text: string }]
+}
+```
+
+##### Submitting an attempt
+
+`POST /practice/quizzes/{quiz_id}/attempts` body:
+
+```ts
+{
+  started_at?: string,    // ISO datetime; optional, server records `completed_at` anyway
+  answers: Answer[]       // one per item; order doesn't matter; no duplicates
+}
+
+// MCQ answer — pass the option the user tapped.
+{ item_id: string, option_id: string }
+
+// MATCHING answer — submit one pair per canonical pair. A pair is
+// "correct" when the user's left_id and right_id are the same (i.e. they
+// dragged the matching halves together).
+{ item_id: string, pairs: [{ left_id: string, right_id: string }] }
+```
+
+Response `PracticeAttemptResult`:
+
+```ts
+{
+  id: string,
+  quiz_id: string,
+  score_percent: number,    // round(sum(awarded) / sum(item.points) * 100)
+  correct_count: number,    // number of items the user got right
+  total_count: number,
+  completed_at: string,
+  results: [
+    { item_id: string, is_correct: boolean, awarded_points: number }
+  ]
+}
+```
+
+**Grading is all-or-nothing per item.** Get one pair wrong on a matching item
+and you get 0 points for the whole item — Duolingo behavior. The frontend
+should render the full per-item results so the user can see which items they
+missed, then offer a "Try again" CTA that hits the same endpoint.
+
+`best_score_percent` shown in the pack view is `MAX(score_percent)` across all
+attempts, so retrying is purely upside.
+
+#### Practice-related error codes
+
+| HTTP | code | When |
+| ---- | ---- | ---- |
+| 403  | `not_enrolled` | User hasn't bought the course |
+| 404  | `not_found` | Quiz/pack/course doesn't exist, isn't published, or parent course isn't published |
+| 422  | `quiz_has_no_items` | Tried to submit against a quiz with no items (instructor hasn't added any yet) |
+| 422  | `duplicate_answer` | Same `item_id` answered twice in one submission |
+| 422  | `unknown_item` | `item_id` doesn't belong to this quiz |
+
+### 4.10 Notes (lesson notes)
+
+User-private notes pinned to a specific lesson timestamp.
+
+| Method & path | Body | Returns |
+| --- | --- | --- |
+| `POST /me/notes` | `{lesson_id, title?, body, timestamp_seconds?}` | `LessonNoteRead` (201) |
+| `GET /me/notes?lesson_id=&course_id=` | – | `LessonNoteRead[]` |
+| `PATCH /me/notes/{note_id}` | `{title?, body?, timestamp_seconds?}` | `LessonNoteRead` |
+| `DELETE /me/notes/{note_id}` | – | 204 |
+
+`LessonNoteRead` carries `course_id` too, so the UI can group "my notes" by
+course without a second roundtrip. `timestamp_seconds` is where in the lesson
+the note was taken — render notes as bookmarks on the progress bar.
+
+### 4.11 Downloads & attachments
+
+Two ideas, one feature: **attachments** are the instructor-uploaded files
+hanging off a lesson; **downloads** are the per-user "saved for offline" set
+that pulls from the attachment list.
+
+| Method & path | Auth | Returns | Notes |
+| --- | --- | --- | --- |
+| `GET /lessons/{lesson_id}/attachments` | ✓ | `LessonAttachmentRead[]` | Enrollment-gated |
+| `GET /me/downloads` | ✓ | `DownloadRead[]` | The user's saved-for-offline list |
+| `POST /me/downloads` | ✓ | `DownloadRead` (201) | Body: `{attachment_id}` |
+| `DELETE /me/downloads/{download_id}` | ✓ | 204 | |
+
+`LessonAttachmentRead.resource_url` is the resolved media URL (presigned in S3
+mode). For offline-first UIs, persist the file bytes locally; just remember
+the URL expires (see §3 media URL handling), so fetch immediately, don't lazy.
+
+### 4.12 Activity (streak & weekly goal)
+
+| Method & path | Body | Returns |
+| --- | --- | --- |
+| `GET /me/activity/weekly` | – | `WeeklyActivityRead` |
+| `PUT /me/activity/weekly-goal` | `{weekly_goal_minutes: 0..10080}` | `WeeklyActivityRead` |
+
+```ts
+WeeklyActivityRead {
+  weekly_goal_minutes: number | null,
+  minutes_learned_total: number,
+  days: [
+    { activity_date: "2026-06-04", minutes_learned: number, lessons_completed: number }
+  ]   // last 7 days, oldest-first, includes zero-rows for days with no activity
+}
+```
+
+Server writes happen automatically from segment fetches in the streaming
+endpoints — the frontend doesn't need to push activity manually. Just render
+this on the dashboard.
+
+### 4.13 Payments (orders, saved cards, Payme)
+
+Money moves through three things: **payment methods** (saved cards),
+**orders** (a course or program purchase intent), and a **pay** action that
+either charges a saved card synchronously or hands back a Payme checkout URL
+for redirect.
+
+#### Saved cards (`/me/payment-methods`)
+
+| Method & path | Body | Returns | Notes |
+| --- | --- | --- | --- |
+| `GET /me/payment-methods` | – | `PaymentMethodRead[]` | All cards the user has saved |
+| `POST /me/payment-methods` | `PaymentMethodCreate` | `PaymentMethodRead` (201) | PAN never persists — we tokenize via Payme |
+| `POST /me/payment-methods/{pm_id}/verify/start` | – | `{message}` | Kicks off Payme `cards.get_verify_code`; user gets an SMS OTP |
+| `POST /me/payment-methods/{pm_id}/verify/confirm` | `{code}` | `PaymentMethodRead` | Card is now `is_verified: true` and chargeable |
+| `DELETE /me/payment-methods/{pm_id}` | – | 204 | |
+
+`PaymentMethodCreate`:
+```ts
+{
+  card_number: string,          // 12-23 digits, spaces allowed
+  expires_month: 1..12,
+  expires_year: 2025..2099,
+  cardholder_name?: string,
+  set_default?: boolean
+}
+```
+
+`PaymentMethodRead` exposes `last4`, `brand` (`uzcard`/`humo`/`visa`/...),
+`is_default`, `is_verified`. **Never** display the original card number — we
+don't have it.
+
+#### Orders (`/orders`, `/me/orders`)
+
+| Method & path | Body | Returns | Notes |
+| --- | --- | --- | --- |
+| `POST /orders` | `{item_kind, course_id?, program_id?}` | `OrderRead` (201) | Pick exactly one of `course_id` / `program_id` based on `item_kind` |
+| `GET /orders/{order_id}` | – | `OrderRead` | |
+| `DELETE /orders/{order_id}` | – | `OrderRead` | Cancels (status → `cancelled`); idempotent on already-cancelled |
+| `POST /orders/{order_id}/pay/card` | `{payment_method_id}` | `PayResponse` | Synchronous charge against a verified saved card |
+| `POST /orders/{order_id}/pay/payme` | `{return_url?}` | `PayResponse` | Returns `checkout_url` — redirect the browser there |
+| `GET /me/orders` | – | `OrderRead[]` | The user's order history |
+
+`PayResponse`:
+```ts
+{
+  order_id: string,
+  status: OrderStatus,
+  checkout_url?: string,     // present for Payme hosted-checkout; redirect to it
+  transaction_id?: string    // present for synchronous card-on-file charges
+}
+```
+
+##### Suggested flow
+
+1. User clicks "Buy" on a course → `POST /orders` with the course id → store `order_id`.
+2. Show the user the saved cards (`GET /me/payment-methods`). Two options:
+   - **Pay with saved card** → `POST /orders/{order_id}/pay/card` → on `status: "paid"`, show success and route to the course.
+   - **Pay with Payme** → `POST /orders/{order_id}/pay/payme` with `return_url` set to your "thank you" page → redirect to `checkout_url`.
+3. After Payme redirects back, poll `GET /orders/{order_id}` until `status: "paid"` (the merchant callback runs server-side; usually a few seconds). On success, the matching enrollment is auto-created — `GET /me/enrollments` will include it.
+4. If the user cancels mid-flow, hit `DELETE /orders/{order_id}` so the dashboard doesn't show a stale "pending order."
+
+The Payme merchant callback (`POST /payments/payme/callback`) is **server-to-server**: you don't call it from the frontend. The only thing your UI needs to know is the order status, which `GET /orders/{order_id}` reflects.
+
+### 4.14 Instructor management (`/instructor`, role: instructor or admin)
 
 All routes return `403 instructor_role_required` for plain users.
 
@@ -532,12 +790,57 @@ All routes return `403 instructor_role_required` for plain users.
   `POST /instructor/assessments/{id}/questions`,
   `PATCH/DELETE /instructor/questions/{id}`,
   `GET /instructor/assessments/{id}/submissions`
+- **Practice quizzes** (see §4.9 for the student side):
+  - Pack: `GET/PATCH /instructor/courses/{course_id}/practice` (auto-creates the pack on first read; PATCH body `{title?, description?}`)
+  - Quiz: `POST /instructor/courses/{course_id}/practice/quizzes` (`{title, description?, order?, is_published?}`),
+    `GET/PATCH/DELETE /instructor/practice/quizzes/{quiz_id}` (PATCH accepts `{title?, description?, order?, is_published?}`)
+  - Item: `POST /instructor/practice/quizzes/{quiz_id}/items`,
+    `PUT /instructor/practice/items/{item_id}` (full replace),
+    `DELETE /instructor/practice/items/{item_id}` —
+    payload is the same `PracticeItemWrite` shape sketched below:
+
+    ```ts
+    // type must match data.type (validated server-side)
+    {
+      type: "mcq" | "matching",
+      points?: number,           // default 1; ≥ 0
+      order?: number,            // optional; appends at the end if omitted
+      data: MCQDataWrite | MatchingDataWrite
+    }
+
+    MCQDataWrite {
+      type: "mcq",
+      prompt: string,
+      image_url?: string,
+      options: [{                 // 2-8 options, ids unique within the item,
+        id: string,                // exactly one is_correct: true
+        text: string,
+        image_url?: string,
+        is_correct?: boolean
+      }]
+    }
+
+    MatchingDataWrite {
+      type: "matching",
+      prompt: string,
+      pairs: [{                   // 2-10 pairs, ids unique within the item
+        id: string,                // this id appears as both left.id and right.id
+        left: string,              //   to the student (sides are shuffled)
+        right: string
+      }]
+    }
+    ```
+
+    Items per quiz are capped at 50 — `POST .../items` returns `422 quiz_item_limit`
+    when full. The instructor view (`GET /instructor/practice/quizzes/{quiz_id}`)
+    includes `is_correct` on MCQ options and raw `left`/`right` strings — that's
+    the only place the answer key is visible. Don't ship it to non-instructor users.
 
 After a video upload, `LessonAdminRead.hls_status` will be `pending`. Poll the
 lesson (or just refetch the section) every few seconds — it transitions to
 `ready` (or `failed`). Don't surface `playback_url` until `ready`.
 
-### 4.10 Admin (`/admin`, role: admin)
+### 4.15 Admin (`/admin`, role: admin)
 
 Full CRUD + lifecycle for users, categories, instructors, courses, programs,
 program-course links, reviews, enrollments, certificates. See OpenAPI for the
@@ -548,7 +851,7 @@ exact shapes — they all follow the same patterns:
 - `POST .../feature` / `unfeature` toggles `is_featured` on courses.
 - File uploads are multipart with field name `file`.
 
-### 4.11 Health
+### 4.16 Health
 
 - `GET /health` → `{status: "ok"}` (liveness)
 - `GET /ready` → `{status: "ready"|"degraded", db, redis}` (readiness, checks
@@ -770,8 +1073,12 @@ src/
 ### Recommended: generate types from OpenAPI
 
 ```bash
-npx openapi-typescript http://localhost:8000/api/v1/openapi.json \
+# From the running backend (local or prod):
+npx openapi-typescript https://api.satzone.dev/api/v1/openapi.json \
   -o src/api/types.ts
+
+# Or from the committed snapshot in this repo (no network required):
+npx openapi-typescript bruno/openapi.json -o src/api/types.ts
 ```
 
 Re-run when the backend changes. The OpenAPI spec is committed at
@@ -836,9 +1143,10 @@ async function tryRefresh(): Promise<boolean> {
 docker compose up -d
 docker compose exec api alembic upgrade head
 
-# Backend runs at http://localhost:8000
-# OpenAPI: http://localhost:8000/api/v1/openapi.json
-# Swagger UI: http://localhost:8000/docs
+# Backend runs at http://localhost:8080 (check your docker-compose.yml port mapping
+# — older configs use :8000).
+# OpenAPI: http://localhost:8080/api/v1/openapi.json
+# Swagger UI: http://localhost:8080/docs
 
 # Add your frontend origin to BACKEND_CORS_ORIGINS in .env, then re-up:
 docker compose up -d --force-recreate api
@@ -880,6 +1188,19 @@ docker compose exec db psql -U satzone -d satzone -c \
   spurious 429s.
 - **422 validation errors carry per-field detail.** Render them inline; don't
   show the raw `details` array to users.
+- **Practice "completion" ≠ "mastery".** The progress object marks `completed`
+  as soon as the user has any attempt; `best_score_percent` is the actual
+  mastery signal. Drive the unlock-next-lesson UX off the score, not the flag.
+- **Matching grading is all-or-nothing.** One wrong pair = 0 points on the
+  whole item. Don't show partial credit per pair — show "correct/incorrect"
+  per item.
+- **Order status is eventually consistent on Payme.** After Payme redirects
+  the user back, the merchant callback may take a few seconds to land. Poll
+  `GET /orders/{order_id}` for a `status: "paid"` transition rather than
+  trusting the redirect alone. The matching enrollment is auto-created on
+  the same transition.
+- **Card PAN is never persisted.** `PaymentMethodRead` only carries `last4` +
+  `brand` + `expires_*`. Don't try to display the full number.
 - **`X-Forwarded-For` matters.** If your frontend dev server proxies API
   calls, make sure it forwards the client IP — both rate-limit buckets and
   playback token IP-binding rely on it.
