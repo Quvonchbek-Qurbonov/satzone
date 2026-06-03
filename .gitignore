@@ -16,4 +16,5 @@ __pycache__/
 media/
 
 # Keep the directory itself so the bind mount has somewhere to attach.
-!media/.gitkeep".claude/" 
+!media/.gitkeep".claude/"
+.claude
