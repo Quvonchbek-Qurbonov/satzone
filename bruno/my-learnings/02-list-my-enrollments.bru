@@ -1,0 +1,15 @@
+meta {
+  name: List my enrollments
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/me/enrollments
+}
+
+query {
+  page: 1
+  size: 20
+  status: all
+}

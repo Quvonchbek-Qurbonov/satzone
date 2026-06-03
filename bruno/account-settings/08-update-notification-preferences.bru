@@ -1,0 +1,23 @@
+meta {
+  name: Update notification preferences
+  type: http
+  seq: 8
+}
+
+patch {
+  url: {{base_url}}/me/preferences/notifications
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "email_marketing": false,
+    "email_announcements": true,
+    "email_course_updates": true,
+    "push_enabled": true
+  }
+}

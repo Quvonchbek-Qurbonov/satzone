@@ -1,0 +1,41 @@
+meta {
+  name: Submit practice attempt
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base_url}}/practice/quizzes/{{practice_quiz_id}}/attempts
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "started_at": null,
+    "answers": [
+      {
+        "item_id": "{{practice_item_id}}",
+        "option_id": "a"
+      }
+    ]
+  }
+}
+
+tests {
+  test("201 Created", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j && j.id) bru.setEnvVar('practice_attempt_id', j.id);
+}
+
+docs {
+  Submit one play-through. Each answer entry is discriminated on shape: MCQ supplies option_id, matching supplies pairs[]. Response carries per-item results + aggregate score_percent.
+}

@@ -1,0 +1,14 @@
+meta {
+  name: List course assessments
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/instructor/courses/{{instructor_course_id}}/assessments
+}
+
+query {
+  page: 1
+  size: 20
+}

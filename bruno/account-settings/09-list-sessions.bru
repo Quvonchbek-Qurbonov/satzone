@@ -1,0 +1,14 @@
+meta {
+  name: List sessions
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{base_url}}/me/sessions
+}
+
+script:post-response {
+  const arr = res.getBody();
+  if (Array.isArray(arr) && arr.length) bru.setEnvVar('session_id', arr[0].id);
+}

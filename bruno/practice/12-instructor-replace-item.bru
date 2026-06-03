@@ -1,0 +1,29 @@
+meta {
+  name: Instructor: replace item
+  type: http
+  seq: 12
+}
+
+put {
+  url: {{base_url}}/instructor/practice/items/{{practice_item_id}}
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "type": "mcq",
+    "points": 2,
+    "data": {
+      "type": "mcq",
+      "prompt": "Pick the verb",
+      "options": [
+        {"id": "a", "text": "Run", "is_correct": true},
+        {"id": "b", "text": "Red", "is_correct": false}
+      ]
+    }
+  }
+}

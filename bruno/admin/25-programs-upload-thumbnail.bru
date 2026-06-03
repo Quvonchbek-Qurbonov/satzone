@@ -1,0 +1,14 @@
+meta {
+  name: Programs — upload thumbnail
+  type: http
+  seq: 25
+}
+
+post {
+  url: {{base_url}}/admin/programs/{{admin_program_id}}/thumbnail
+  body: multipart-form
+}
+
+body:multipart-form {
+  file: @file()
+}

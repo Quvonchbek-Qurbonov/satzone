@@ -1,0 +1,13 @@
+meta {
+  name: Lesson HLS — first segment (encrypted .ts)
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{base_url}}/lessons/{{lesson_id}}/hls/seg/seg_0000.ts
+}
+
+query {
+  t: {{playback_token}}
+}

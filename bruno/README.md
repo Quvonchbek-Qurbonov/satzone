@@ -1,24 +1,26 @@
 # Bruno docs
 
-Five files for [Bruno](https://www.usebruno.com/):
+[Bruno](https://www.usebruno.com/) reads this directory as a collection. The request tree is committed as `.bru` files so it shows up the moment you open the folder — no import step.
 
-| File | Purpose |
-| ---- | ------- |
-| `bruno.json` | Bruno collection config — point Bruno → **Open Collection** at this directory and Bruno will treat it as the collection root. |
+| File / folder | Purpose |
+| ------------- | ------- |
+| `bruno.json` | Bruno collection config — point Bruno → **Open Collection** at this directory and it becomes the collection root. |
 | `environments/Local.bru` | Bruno-native environment with `base_url`, `access_token`, `refresh_token`, and other slugs/IDs. Selected via Bruno's top-right environment dropdown. |
-| `satzone.collection.json` | Postman Collection v2.1 — Auth, Onboarding, Home, Explore, Reviews, My Learnings, Notes, Downloads, Activity, Video Streaming, Instructor, Assessments, Degree, Account & Settings, **Payments**, Admin, **Internal**. Auto-token-capture scripts on key requests. The Video Streaming folder is HLS-only for lessons (direct-MP4 endpoint removed). Import once into Bruno to populate the request tree. |
-| `satzone.environment.json` | Postman-format environment kept alongside the collection for one-shot import. The `.bru` file under `environments/` is the source of truth once you're inside Bruno. |
-| `openapi.json` | Raw OpenAPI 3 spec exported from the live API (for tools that prefer OpenAPI) — regenerate after adding endpoints with `curl http://localhost:8080/api/v1/openapi.json -o bruno/openapi.json`. Bruno can also import this directly via **Import Collection → OpenAPI**. |
+| `<folder>/*.bru` | One `.bru` file per request, grouped by tag (`auth/`, `explore/`, `payments/`, `admin/`, `internal/`, …). Generated from `satzone.collection.json` by `scripts/generate_bru.py`. |
+| `satzone.collection.json` | Postman Collection v2.1 — the **canonical source** for the request tree. Hand-curated: auto-token-capture scripts, env-var captures, pre-set bodies. Edit this when adding/changing requests, then regenerate the `.bru` tree. |
+| `satzone.environment.json` | Postman-format environment kept alongside for one-shot Postman import. The `.bru` file under `environments/` is the source of truth in Bruno. |
+| `openapi.json` | Raw OpenAPI 3 spec exported from the live API — kept in sync as a reference spec and for tools that prefer OpenAPI. |
+| `scripts/generate_bru.py` | Regenerates the `<folder>/*.bru` tree from `satzone.collection.json`. Idempotent; tracks its output via `.gen-manifest`. |
+| `.gen-manifest` | List of folders owned by the generator. Don't hand-edit — re-running the script deletes everything listed here before rewriting. |
 
 ## Open in Bruno
 
-1. Bruno → **Open Collection** → select the `bruno/` directory. Bruno reads `bruno.json` and shows the `Local` environment under `environments/`.
+1. Bruno → **Open Collection** → select the `bruno/` directory. Bruno reads `bruno.json`, shows the request tree from the committed `.bru` files, and lists the `Local` environment.
 2. Top-right environment dropdown → **Local**. Fill in `user_password` (marked secret) if you want auth tests to run.
-3. First time only — bring the requests in: Bruno → **Import Collection** → choose `satzone.collection.json`. Bruno converts the Postman v2.1 file into `.bru` requests under the collection. (`openapi.json` works too if you'd rather start from the spec.)
-4. Make sure the stack is up: `docker compose up -d`.
-5. Run **Auth → Login (captures tokens)**.
+3. Make sure the stack is up: `docker compose up -d`.
+4. Run **Auth → Login (captures tokens)**.
    - Post-response script writes `access_token` and `refresh_token` into the active environment.
-6. Every other request inherits Bearer auth from the collection — just hit Send.
+5. Every other request inherits Bearer auth from the collection — just hit Send.
 
 Register a user via `POST /auth/register` (and verify the email) before
 running auth-gated requests. Set `user_email` / `user_password` in the
@@ -65,6 +67,12 @@ These requests have post-response scripts that populate environment variables fo
 | Payments → Save card | `payment_method_id` |
 | Payments → Create order | `order_id` |
 | Payments → Pay order (Payme hosted checkout) | `payme_checkout_url` |
+| Practice → Get my practice pack (student) | `practice_pack_id`, `practice_quiz_id` (first quiz) |
+| Practice → Get practice quiz (student) | `practice_item_id` (first item) |
+| Practice → Submit practice attempt | `practice_attempt_id` |
+| Practice → Instructor: get pack | `practice_pack_id` |
+| Practice → Instructor: create quiz | `practice_quiz_id` |
+| Practice → Instructor: add MCQ item | `practice_item_id` |
 
 A clean run order to exercise everything end-to-end:
 
@@ -98,6 +106,39 @@ Admins, course owners, and viewers of `is_free_preview` lessons bypass the gate 
 6. **Video Streaming → Lesson HLS — first segment** is encrypted bytes; only useful in combination with the key.
 7. **Video Streaming → Course preview playback** still serves direct MP4 — preview videos are marketing content meant to be watchable by non-enrolled users.
 8. **Video Streaming → DRM license proxy** returns `drm_not_configured` until you set `DRM_PROVIDER` in `.env` to a real provider.
+
+### Practice (Duolingo-style drills)
+
+The **Practice** folder is a standalone quiz feature, separate from **Assessments**: no pass/fail, no time limit, no attempt cap, no lesson gating. Each course gets one `practice_pack` auto-created the first time the instructor adds a quiz; each pack holds many quizzes (Duolingo "lessons"), each holding up to 50 items of two types: `mcq` (single-correct multiple choice) and `matching` (pair items left ↔ right).
+
+Access is enrollment-gated — only users who bought the course see published quizzes. Matching items have their `lefts` and `rights` shuffled server-side, and MCQ options omit `is_correct` from the student payload, so the answer key never leaves the server.
+
+Authoring (instructor or admin):
+
+1. **Auth → Login** as the instructor (must be the course owner).
+2. **Practice → Instructor: get pack** — auto-creates the pack and captures `practice_pack_id`.
+3. **Practice → Instructor: create quiz** → sets `practice_quiz_id`.
+4. **Practice → Instructor: add MCQ item** → sets `practice_item_id`.
+5. **Practice → Instructor: add matching item** for the pair drag-and-drop UX.
+6. **Practice → Instructor: publish quiz** (`is_published=true`) — without this students can't see the quiz.
+
+Playing:
+
+1. Re-login as an enrolled student.
+2. **Practice → Get my practice pack (student)** — lists every published quiz with the caller's progress (`completed`, `best_score_percent`, `attempts_count`, `last_attempted_at`).
+3. **Practice → Get practice quiz (student)** — full item list with sanitized payloads.
+4. **Practice → Submit practice attempt** — server grades each item all-or-nothing, returns per-item results plus aggregate `score_percent`. Replay as many times as you like — `best_score_percent` is `MAX()` across attempts.
+
+Failure modes worth knowing:
+
+| HTTP | code | meaning |
+| ---- | ---- | ------- |
+| 403  | `not_enrolled` | Caller hasn't bought the course |
+| 403  | `instructor_role_required` | Authoring routes called without instructor/admin role |
+| 422  | `quiz_item_limit` | More than 50 items per quiz |
+| 422  | `quiz_has_no_items` | Attempt submitted against an empty quiz |
+| 422  | `duplicate_answer` | Same `item_id` answered twice in one attempt |
+| 422  | `unknown_item` | `item_id` doesn't belong to the quiz |
 
 ### Admin flow
 
@@ -173,10 +214,22 @@ These endpoints require a user with `role=instructor` (or `admin`) — `auth/reg
     - SHORT_ANSWER comparisons strip whitespace + lowercase on both sides, so accepted answers entered with stray spaces still match.
 13. Back as the instructor: **Assessments → List submissions**, **Instructor → Course analytics**.
 
-## Re-export OpenAPI
+## Sync workflow when the API changes
 
-```bash
-curl http://localhost:8080/api/v1/openapi.json -o bruno/openapi.json
-```
+`satzone.collection.json` is the canonical source for the request tree; the `<folder>/*.bru` files are generated from it. After any route, schema, or docstring change:
 
-Bruno can also import the OpenAPI file directly (**Import Collection → OpenAPI**), but you lose the post-response scripts and pre-set environment values that the curated collection provides.
+1. **Refresh `openapi.json`** from the running app:
+   ```bash
+   python -c "from app.main import app; import json; open('bruno/openapi.json','w',encoding='utf-8').write(json.dumps(app.openapi(), indent=2))"
+   ```
+   (Or, if the container is up: `curl http://localhost:8080/api/v1/openapi.json -o bruno/openapi.json`.)
+2. **Edit `satzone.collection.json`** to add/rename/remove the request — keep the curated bits (auto-token capture scripts, env-var pre-fills, pre-set bodies) that the OpenAPI spec doesn't carry.
+3. **Regenerate the `.bru` tree**:
+   ```bash
+   python bruno/scripts/generate_bru.py
+   ```
+4. **Update this README** if the new request needs a new env var, a new flow step, or a new failure-mode row.
+
+All four artifacts — `openapi.json`, `satzone.collection.json`, the `.bru` tree, and the README — get committed together so Bruno, Postman, and OpenAPI consumers stay aligned.
+
+> Bruno can also import `openapi.json` directly (**Import Collection → OpenAPI**), but you lose the post-response scripts and pre-set environment values that the curated collection provides — only useful for a quick read-only browse.

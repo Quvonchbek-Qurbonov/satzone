@@ -1,0 +1,35 @@
+meta {
+  name: Create section quiz (gating)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base_url}}/instructor/courses/{{instructor_course_id}}/assessments
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "title": "End-of-section check",
+    "section_id": "{{section_id}}",
+    "is_section_quiz": true,
+    "pass_percent": 70,
+    "max_attempts": 3
+  }
+}
+
+tests {
+  test("201 Created", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j && j.id) bru.setEnvVar('section_quiz_id', j.id);
+}

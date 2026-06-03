@@ -1,0 +1,16 @@
+meta {
+  name: List my courses
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{base_url}}/instructor/courses
+}
+
+query {
+  page: 1
+  size: 20
+  ~status: 
+  ~search: 
+}

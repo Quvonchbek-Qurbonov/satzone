@@ -1,0 +1,22 @@
+meta {
+  name: Update lesson progress
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{base_url}}/me/enrollments/{{enrollment_id}}/lessons/{{lesson_id}}/progress
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "last_position_seconds": 120,
+    "watched_seconds": 180,
+    "completed": true
+  }
+}

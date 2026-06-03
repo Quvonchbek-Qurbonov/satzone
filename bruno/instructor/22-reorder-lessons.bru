@@ -1,0 +1,22 @@
+meta {
+  name: Reorder lessons
+  type: http
+  seq: 22
+}
+
+post {
+  url: {{base_url}}/instructor/sections/{{section_id}}/lessons/reorder
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "items": [
+      {"id": "{{instructor_lesson_id}}", "order": 0}
+    ]
+  }
+}

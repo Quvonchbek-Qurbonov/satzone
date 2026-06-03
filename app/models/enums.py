@@ -42,6 +42,11 @@ class QuestionType(str, enum.Enum):
     SHORT_ANSWER = "short_answer"
 
 
+class PracticeItemType(str, enum.Enum):
+    MCQ = "mcq"
+    MATCHING = "matching"
+
+
 class AssessmentStatus(str, enum.Enum):
     DRAFT = "draft"
     PUBLISHED = "published"

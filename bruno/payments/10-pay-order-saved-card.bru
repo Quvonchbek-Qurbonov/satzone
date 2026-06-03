@@ -1,0 +1,20 @@
+meta {
+  name: Pay order (saved card)
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{base_url}}/orders/{{order_id}}/pay/card
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "payment_method_id": "{{payment_method_id}}"
+  }
+}

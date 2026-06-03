@@ -1,0 +1,21 @@
+meta {
+  name: Create order (program)
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{base_url}}/orders
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "item_kind": "program",
+    "program_id": "{{program_id}}"
+  }
+}

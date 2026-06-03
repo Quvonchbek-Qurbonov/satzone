@@ -1,0 +1,14 @@
+meta {
+  name: Categories — upload icon
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{base_url}}/admin/categories/{{admin_category_id}}/icon
+  body: multipart-form
+}
+
+body:multipart-form {
+  file: @file()
+}

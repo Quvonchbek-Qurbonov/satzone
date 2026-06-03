@@ -1,0 +1,22 @@
+meta {
+  name: Programs — reorder courses
+  type: http
+  seq: 28
+}
+
+post {
+  url: {{base_url}}/admin/programs/{{admin_program_id}}/courses/reorder
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "items": [
+      { "course_id": "{{instructor_course_id}}", "order": 0 }
+    ]
+  }
+}

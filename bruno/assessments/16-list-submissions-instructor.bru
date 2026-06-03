@@ -1,0 +1,14 @@
+meta {
+  name: List submissions (instructor)
+  type: http
+  seq: 16
+}
+
+get {
+  url: {{base_url}}/instructor/assessments/{{assessment_id}}/submissions
+}
+
+query {
+  page: 1
+  size: 20
+}

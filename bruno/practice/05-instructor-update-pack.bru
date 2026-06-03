@@ -1,0 +1,21 @@
+meta {
+  name: Instructor: update pack
+  type: http
+  seq: 5
+}
+
+patch {
+  url: {{base_url}}/instructor/courses/{{instructor_course_id}}/practice
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "title": "Vocabulary drills",
+    "description": "Bite-sized practice to lock in this week's lessons."
+  }
+}

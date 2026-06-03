@@ -1,0 +1,22 @@
+meta {
+  name: Submit assessment (student)
+  type: http
+  seq: 18
+}
+
+post {
+  url: {{base_url}}/assessments/{{assessment_id}}/submissions
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "answers": [
+      {"question_id": "{{question_id}}", "selected_option_ids": ["{{option_id}}"]}
+    ]
+  }
+}

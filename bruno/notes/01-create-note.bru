@@ -1,0 +1,28 @@
+meta {
+  name: Create note
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/me/notes
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "lesson_id": "{{lesson_id}}",
+    "title": "Quick recap",
+    "body": "Recap of what I just watched.",
+    "timestamp_seconds": 60
+  }
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j && j.id) bru.setEnvVar('note_id', j.id);
+}

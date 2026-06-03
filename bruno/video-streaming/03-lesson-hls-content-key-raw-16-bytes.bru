@@ -1,0 +1,13 @@
+meta {
+  name: Lesson HLS — content key (raw 16 bytes)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base_url}}/lessons/{{lesson_id}}/hls/key
+}
+
+query {
+  t: {{playback_token}}
+}

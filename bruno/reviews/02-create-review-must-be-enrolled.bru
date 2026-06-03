@@ -1,0 +1,21 @@
+meta {
+  name: Create review (must be enrolled)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/courses/{{course_slug}}/reviews
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "rating": 5,
+    "comment": "Excellent — exactly what I needed."
+  }
+}

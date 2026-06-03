@@ -1,0 +1,13 @@
+meta {
+  name: Lesson HLS — master playlist
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/lessons/{{lesson_id}}/hls/master.m3u8
+}
+
+query {
+  t: {{playback_token}}
+}

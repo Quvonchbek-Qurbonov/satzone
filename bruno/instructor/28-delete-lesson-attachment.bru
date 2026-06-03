@@ -1,0 +1,13 @@
+meta {
+  name: Delete lesson attachment
+  type: http
+  seq: 28
+}
+
+delete {
+  url: {{base_url}}/instructor/lessons/{{instructor_lesson_id}}/attachments/{{attachment_id}}
+}
+
+docs {
+  Remove a LessonAttachment row owned by the instructor's lesson. CASCADE cleans up any per-user 'saved for offline' rows (`user_resource_downloads`).
+}

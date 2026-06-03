@@ -1,0 +1,33 @@
+meta {
+  name: Instructor: create quiz
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{base_url}}/instructor/courses/{{instructor_course_id}}/practice/quizzes
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "title": "Lesson 1",
+    "description": "Match and tap to practice the basics.",
+    "is_published": false
+  }
+}
+
+tests {
+  test("201 Created", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j && j.id) bru.setEnvVar('practice_quiz_id', j.id);
+}

@@ -1,0 +1,9 @@
+meta {
+  name: Revoke a session
+  type: http
+  seq: 10
+}
+
+delete {
+  url: {{base_url}}/me/sessions/{{session_id}}
+}

@@ -1,0 +1,33 @@
+meta {
+  name: Refresh (rotates tokens)
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base_url}}/auth/refresh
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "refresh_token": "{{refresh_token}}"
+  }
+}
+
+tests {
+  test("200 OK", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j.access_token) bru.setEnvVar('access_token', j.access_token);
+  if (j.refresh_token) bru.setEnvVar('refresh_token', j.refresh_token);
+}

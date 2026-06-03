@@ -1,0 +1,14 @@
+meta {
+  name: Start Google sign-in (open in browser)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/auth/google/login
+  auth: none
+}
+
+docs {
+  Returns 307 → https://accounts.google.com/... Postman won't render Google's UI; right-click the request and 'Open in Browser' to actually consent.
+}

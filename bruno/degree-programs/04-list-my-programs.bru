@@ -1,0 +1,14 @@
+meta {
+  name: List my programs
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{base_url}}/me/programs
+}
+
+query {
+  page: 1
+  size: 20
+}

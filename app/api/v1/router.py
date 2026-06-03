@@ -21,6 +21,7 @@ from app.api.v1 import (
     notes,
     onboarding,
     payments,
+    practice,
     programs,
     streaming,
     wishlist,
@@ -45,6 +46,8 @@ api_router.include_router(programs.me_router)
 api_router.include_router(instructor.router)
 api_router.include_router(assessments.router)
 api_router.include_router(assessments.section_quiz_router)
+api_router.include_router(practice.student_router)
+api_router.include_router(practice.instructor_router)
 api_router.include_router(streaming.router)
 api_router.include_router(drm.router)
 api_router.include_router(notes.router)

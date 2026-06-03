@@ -1,0 +1,15 @@
+meta {
+  name: List categories
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/categories
+  auth: none
+}
+
+script:post-response {
+  const arr = res.getBody();
+  if (Array.isArray(arr) && arr.length) bru.setEnvVar('category_id', arr[0].id);
+}

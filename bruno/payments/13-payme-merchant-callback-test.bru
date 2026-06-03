@@ -1,0 +1,36 @@
+meta {
+  name: Payme merchant callback (test)
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{base_url}}/payments/payme/callback
+  body: json
+  auth: basic
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:basic {
+  username: Paycom
+  password: {{payme_key}}
+}
+
+body:json {
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "CheckPerformTransaction",
+    "params": {
+      "amount": 10000,
+      "account": {"order_id": "{{order_id}}"}
+    }
+  }
+}
+
+docs {
+  Simulates a call FROM Payme to our backend. Set payme_key in the environment to PAYME_KEY from .env.
+}

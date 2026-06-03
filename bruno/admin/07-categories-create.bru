@@ -1,0 +1,26 @@
+meta {
+  name: Categories — create
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{base_url}}/admin/categories
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "SAT Math",
+    "description": "Algebra, geometry, data analysis",
+    "sort_order": 0
+  }
+}
+
+script:post-response {
+  const j = res.getBody(); if (j.id) bru.setEnvVar('admin_category_id', j.id);
+}

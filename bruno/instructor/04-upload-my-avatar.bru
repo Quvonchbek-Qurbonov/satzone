@@ -1,0 +1,14 @@
+meta {
+  name: Upload my avatar
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base_url}}/instructor/me/profile/avatar
+  body: multipart-form
+}
+
+body:multipart-form {
+  file: @file()
+}

@@ -1,0 +1,29 @@
+meta {
+  name: Save card
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/me/payment-methods
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "card_number": "8600490100000000",
+    "expires_month": 12,
+    "expires_year": 2027,
+    "cardholder_name": "DEMO USER",
+    "set_default": true
+  }
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j && j.id) bru.setEnvVar('payment_method_id', j.id);
+}

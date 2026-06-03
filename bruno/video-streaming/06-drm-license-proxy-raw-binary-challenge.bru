@@ -1,0 +1,18 @@
+meta {
+  name: DRM license proxy (raw binary challenge)
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{base_url}}/lessons/{{lesson_id}}/drm/license
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  <binary EME challenge bytes>
+}

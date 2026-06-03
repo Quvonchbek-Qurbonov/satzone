@@ -1,0 +1,20 @@
+meta {
+  name: Update lesson
+  type: http
+  seq: 23
+}
+
+patch {
+  url: {{base_url}}/instructor/lessons/{{instructor_lesson_id}}
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "description": "Updated description."
+  }
+}

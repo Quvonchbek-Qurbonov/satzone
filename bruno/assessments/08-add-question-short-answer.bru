@@ -1,0 +1,23 @@
+meta {
+  name: Add question (short_answer)
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{base_url}}/instructor/assessments/{{assessment_id}}/questions
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "type": "short_answer",
+    "prompt": "Capital of France?",
+    "points": 1,
+    "expected_answers": ["Paris"]
+  }
+}

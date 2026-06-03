@@ -1,0 +1,24 @@
+meta {
+  name: Get practice quiz (student)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/practice/quizzes/{{practice_quiz_id}}
+}
+
+tests {
+  test("200 OK", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j && j.items && j.items[0]) bru.setEnvVar('practice_item_id', j.items[0].id);
+}
+
+docs {
+  Returns the published quiz with items. MCQ options keep ids but drop is_correct; matching items expose shuffled lefts and rights keyed on the pair id.
+}

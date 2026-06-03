@@ -1,0 +1,25 @@
+meta {
+  name: Get my practice pack (student)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/courses/{{course_id}}/practice
+}
+
+tests {
+  test("200 OK", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j && j.id) bru.setEnvVar('practice_pack_id', j.id);
+  if (j && j.quizzes && j.quizzes[0]) bru.setEnvVar('practice_quiz_id', j.quizzes[0].id);
+}
+
+docs {
+  Returns the published practice pack for an enrolled course with per-quiz progress. 403 not_enrolled if the user hasn't bought the course.
+}

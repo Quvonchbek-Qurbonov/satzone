@@ -1,0 +1,14 @@
+meta {
+  name: List my wishlist
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{base_url}}/me/wishlist
+}
+
+query {
+  page: 1
+  size: 20
+}

@@ -1,0 +1,20 @@
+meta {
+  name: Categories — patch
+  type: http
+  seq: 8
+}
+
+patch {
+  url: {{base_url}}/admin/categories/{{admin_category_id}}
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "description": "Updated"
+  }
+}

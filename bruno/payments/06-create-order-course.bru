@@ -1,0 +1,26 @@
+meta {
+  name: Create order (course)
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{base_url}}/orders
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "item_kind": "course",
+    "course_id": "{{course_id}}"
+  }
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j && j.id) bru.setEnvVar('order_id', j.id);
+}

@@ -1,0 +1,24 @@
+meta {
+  name: Instructor: get pack
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{base_url}}/instructor/courses/{{instructor_course_id}}/practice
+}
+
+tests {
+  test("200 OK", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j && j.id) bru.setEnvVar('practice_pack_id', j.id);
+}
+
+docs {
+  Auto-creates the pack on first read. Returns the instructor view (quiz summaries with order + is_published).
+}

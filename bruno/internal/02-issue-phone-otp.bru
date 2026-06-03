@@ -1,0 +1,26 @@
+meta {
+  name: Issue phone OTP
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/internal/phone/issue-otp
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  X-Internal-API-Key: {{internal_api_key}}
+}
+
+body:json {
+  {
+    "phone_number": "{{user_phone}}"
+  }
+}
+
+docs {
+  Mints an OTP for `phone_number` and stores `{otp -> phone}` in Redis (TTL = PHONE_VERIFY_EXPIRE_MINUTES). Called by the Telegram bot after the user shares their contact; the bot then shows the returned OTP to the user, who enters it on the frontend which calls `POST /auth/verify-phone`. Returns 409 `phone_taken` if the number is already verified on another account.
+}

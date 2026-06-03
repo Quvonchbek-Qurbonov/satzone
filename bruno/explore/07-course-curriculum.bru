@@ -1,0 +1,17 @@
+meta {
+  name: Course curriculum
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{base_url}}/courses/{{course_slug}}/curriculum
+  auth: none
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j.sections && j.sections.length && j.sections[0].lessons.length) {
+  bru.setEnvVar('lesson_id', j.sections[0].lessons[0].id);
+  }
+}

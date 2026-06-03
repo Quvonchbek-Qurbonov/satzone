@@ -1,0 +1,22 @@
+meta {
+  name: Users — patch (role / is_active / verify)
+  type: http
+  seq: 3
+}
+
+patch {
+  url: {{base_url}}/admin/users/{{user_id}}
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "role": "instructor",
+    "is_active": true,
+    "is_verified": true
+  }
+}

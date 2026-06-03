@@ -1,0 +1,30 @@
+meta {
+  name: Instructor: add matching item
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{base_url}}/instructor/practice/quizzes/{{practice_quiz_id}}/items
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "type": "matching",
+    "points": 1,
+    "data": {
+      "type": "matching",
+      "prompt": "Match the English word to its French translation",
+      "pairs": [
+        {"id": "p1", "left": "Apple", "right": "Pomme"},
+        {"id": "p2", "left": "Bread", "right": "Pain"},
+        {"id": "p3", "left": "Water", "right": "Eau"}
+      ]
+    }
+  }
+}

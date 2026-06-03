@@ -1,0 +1,26 @@
+meta {
+  name: Instructors — create (freestanding)
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{base_url}}/admin/instructors
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Jane Teacher",
+    "title": "SAT Coach",
+    "bio": "10 years SAT prep"
+  }
+}
+
+script:post-response {
+  const j = res.getBody(); if (j.id) bru.setEnvVar('admin_instructor_id', j.id);
+}

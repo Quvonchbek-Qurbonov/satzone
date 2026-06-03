@@ -1,0 +1,28 @@
+meta {
+  name: Programs — create
+  type: http
+  seq: 22
+}
+
+post {
+  url: {{base_url}}/admin/programs
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "title": "SAT Mastery Track",
+    "subtitle": "From 1200 to 1500",
+    "description": "6 month path",
+    "duration_weeks": 24,
+    "price_cents": 29900
+  }
+}
+
+script:post-response {
+  const j = res.getBody(); if (j.id) bru.setEnvVar('admin_program_id', j.id);
+}

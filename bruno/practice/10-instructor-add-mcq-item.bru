@@ -1,0 +1,41 @@
+meta {
+  name: Instructor: add MCQ item
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{base_url}}/instructor/practice/quizzes/{{practice_quiz_id}}/items
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "type": "mcq",
+    "points": 1,
+    "data": {
+      "type": "mcq",
+      "prompt": "Tap the apple",
+      "options": [
+        {"id": "a", "text": "Apple", "is_correct": true},
+        {"id": "b", "text": "Banana", "is_correct": false},
+        {"id": "c", "text": "Cherry", "is_correct": false}
+      ]
+    }
+  }
+}
+
+tests {
+  test("201 Created", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j && j.id) bru.setEnvVar('practice_item_id', j.id);
+}

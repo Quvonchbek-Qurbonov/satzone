@@ -1,0 +1,29 @@
+meta {
+  name: Add question (multi_choice with images)
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{base_url}}/instructor/assessments/{{section_quiz_id}}/questions
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "type": "multi_choice",
+    "prompt": "Which of these are mammals?",
+    "points": 2,
+    "image_url": null,
+    "options": [
+      {"text": "Dolphin", "is_correct": true},
+      {"text": "Shark", "is_correct": false},
+      {"text": "Bat", "is_correct": true},
+      {"text": "Trout", "is_correct": false}
+    ]
+  }
+}

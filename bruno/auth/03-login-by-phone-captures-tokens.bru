@@ -1,0 +1,38 @@
+meta {
+  name: Login by phone (captures tokens)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base_url}}/auth/login/phone
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "phone_number": "{{user_phone}}",
+    "password": "{{user_password}}"
+  }
+}
+
+tests {
+  test("200 OK", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j.access_token) bru.setEnvVar('access_token', j.access_token);
+  if (j.refresh_token) bru.setEnvVar('refresh_token', j.refresh_token);
+}
+
+docs {
+  Requires the account to have a verified phone number (set via Submit phone + Verify phone). Same response shape as /auth/login.
+}

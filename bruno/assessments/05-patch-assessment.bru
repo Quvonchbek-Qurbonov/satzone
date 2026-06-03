@@ -1,0 +1,20 @@
+meta {
+  name: Patch assessment
+  type: http
+  seq: 5
+}
+
+patch {
+  url: {{base_url}}/instructor/assessments/{{assessment_id}}
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "status": "published"
+  }
+}

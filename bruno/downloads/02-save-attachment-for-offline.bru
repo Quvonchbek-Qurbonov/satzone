@@ -1,0 +1,25 @@
+meta {
+  name: Save attachment for offline
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/me/downloads
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "attachment_id": "{{attachment_id}}"
+  }
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j && j.id) bru.setEnvVar('download_id', j.id);
+}

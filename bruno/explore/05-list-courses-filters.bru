@@ -1,0 +1,34 @@
+meta {
+  name: List courses (filters)
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{base_url}}/courses
+  auth: none
+}
+
+query {
+  page: 1
+  size: 20
+  sort: popular
+  ~search: 
+  ~category_slug: 
+  ~category_id: 
+  ~instructor_id: 
+  ~level: 
+  ~is_free: 
+  ~min_rating: 
+  ~min_duration_minutes: 
+  ~max_duration_minutes: 
+  ~tags: 
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j.items && j.items.length) {
+  bru.setEnvVar('course_id', j.items[0].id);
+  bru.setEnvVar('course_slug', j.items[0].slug);
+  }
+}

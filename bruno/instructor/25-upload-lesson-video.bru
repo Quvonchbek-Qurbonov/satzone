@@ -1,0 +1,15 @@
+meta {
+  name: Upload lesson video
+  type: http
+  seq: 25
+}
+
+post {
+  url: {{base_url}}/instructor/lessons/{{instructor_lesson_id}}/video
+  body: multipart-form
+}
+
+body:multipart-form {
+  file: @file()
+  duration_seconds: 180
+}

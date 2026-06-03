@@ -1,0 +1,10 @@
+meta {
+  name: Get instructor by slug
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{base_url}}/instructors/{{instructor_slug}}
+  auth: none
+}

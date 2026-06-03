@@ -1,0 +1,34 @@
+meta {
+  name: Create lesson
+  type: http
+  seq: 21
+}
+
+post {
+  url: {{base_url}}/instructor/sections/{{section_id}}/lessons
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "title": "Welcome",
+    "type": "video",
+    "duration_seconds": 120,
+    "is_free_preview": true
+  }
+}
+
+tests {
+  test("201 Created", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j && j.id) bru.setEnvVar('instructor_lesson_id', j.id);
+}

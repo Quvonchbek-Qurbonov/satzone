@@ -1,0 +1,23 @@
+meta {
+  name: Programs — add course
+  type: http
+  seq: 27
+}
+
+post {
+  url: {{base_url}}/admin/programs/{{admin_program_id}}/courses
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "course_id": "{{instructor_course_id}}",
+    "order": 0,
+    "milestone_title": "Phase 1",
+    "is_required": true
+  }
+}

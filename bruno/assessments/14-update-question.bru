@@ -1,0 +1,21 @@
+meta {
+  name: Update question
+  type: http
+  seq: 14
+}
+
+patch {
+  url: {{base_url}}/instructor/questions/{{question_id}}
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "prompt": "Updated prompt",
+    "points": 2
+  }
+}

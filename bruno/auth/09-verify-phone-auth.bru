@@ -1,0 +1,24 @@
+meta {
+  name: Verify phone (auth)
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{base_url}}/auth/verify-phone
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "otp": "{{phone_otp}}"
+  }
+}
+
+docs {
+  Bind a phone to the current user by consuming an OTP minted via /internal/phone/issue-otp (called by the Telegram bot). The phone is read out of Redis by OTP — no phone field is accepted here.
+}

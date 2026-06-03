@@ -1,0 +1,18 @@
+meta {
+  name: Course preview playback (marketing video — direct MP4 OK)
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{base_url}}/courses/{{course_slug}}/preview-playback
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j.stream_url) {
+  const t = (j.stream_url.split('t=')[1] || '');
+  bru.setEnvVar('preview_token', t);
+  bru.setEnvVar('preview_stream_url', j.stream_url);
+  }
+}

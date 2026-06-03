@@ -1,0 +1,20 @@
+meta {
+  name: Instructor: publish quiz
+  type: http
+  seq: 8
+}
+
+patch {
+  url: {{base_url}}/instructor/practice/quizzes/{{practice_quiz_id}}
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "is_published": true
+  }
+}

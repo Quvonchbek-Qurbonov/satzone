@@ -1,0 +1,20 @@
+meta {
+  name: Courses — patch (set category/instructor/etc)
+  type: http
+  seq: 17
+}
+
+patch {
+  url: {{base_url}}/admin/courses/{{instructor_course_id}}
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "is_featured": true
+  }
+}

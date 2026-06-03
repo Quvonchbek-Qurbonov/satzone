@@ -1,0 +1,14 @@
+meta {
+  name: Upload option image
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{base_url}}/instructor/options/{{option_id}}/image
+  body: multipart-form
+}
+
+body:multipart-form {
+  file: @file()
+}

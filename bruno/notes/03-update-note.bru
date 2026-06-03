@@ -1,0 +1,20 @@
+meta {
+  name: Update note
+  type: http
+  seq: 3
+}
+
+patch {
+  url: {{base_url}}/me/notes/{{note_id}}
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "body": "Updated note text."
+  }
+}

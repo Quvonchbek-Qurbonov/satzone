@@ -1,0 +1,20 @@
+meta {
+  name: Users — promote to instructor
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{base_url}}/admin/users/promote-instructor
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "email": "{{user_email}}"
+  }
+}

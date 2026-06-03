@@ -1,0 +1,42 @@
+meta {
+  name: Add question (single_choice)
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{base_url}}/instructor/assessments/{{assessment_id}}/questions
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "type": "single_choice",
+    "prompt": "What is 2 + 2?",
+    "points": 1,
+    "options": [
+      {"text": "3", "is_correct": false},
+      {"text": "4", "is_correct": true},
+      {"text": "5", "is_correct": false}
+    ]
+  }
+}
+
+tests {
+  test("201 Created", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j && j.id) bru.setEnvVar('question_id', j.id);
+  if (j && j.options && j.options.length) {
+  const correct = j.options.find(o => o.is_correct);
+  if (correct) bru.setEnvVar('option_id', correct.id);
+  }
+}

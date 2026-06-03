@@ -1,0 +1,23 @@
+meta {
+  name: List programs
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/programs
+  auth: none
+}
+
+query {
+  page: 1
+  size: 20
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j.items && j.items.length) {
+  bru.setEnvVar('program_id', j.items[0].id);
+  bru.setEnvVar('program_slug', j.items[0].slug);
+  }
+}

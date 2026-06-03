@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "9b1f8c00-satzone-collection",
     "name": "SATZone API",
-    "description": "Production-ready SATZone backend covering Sign Up, Onboarding, Home, Explore, Course Detail, My Learnings, Degree, and Account & Settings.\n\n**Setup**:\n1. Import this collection and the `SATZone (local)` environment.\n2. Select that environment (top-right).\n3. Register an account via **Auth → Register** (and verify the email) — then set `user_email` / `user_password` in the environment.\n4. Run **Auth → Login** — `access_token` and `refresh_token` are captured automatically.\n5. All other requests inherit Bearer auth from the collection.\n\nDefault env values target the local docker-compose stack at `http://localhost:8080`.",
+    "description": "Production-ready SATZone backend covering Sign Up, Onboarding, Home, Explore, Course Detail, My Learnings, Degree, and Account & Settings.\n\n**Setup**:\n1. Import this collection and the `SATZone (local)` environment.\n2. Select that environment (top-right).\n3. Register an account via **Auth → Register** (and verify the email) — then set `user_email` / `user_password` in the environment.\n4. Run **Auth → Login** — `access_token` and `refresh_token` are captured automatically.\n5. All other requests inherit Bearer auth from the collection.\n\nDefault env values target the deployed API at `https://api.satzone.dev`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -18,7 +18,7 @@
   "variable": [
     {
       "key": "base_url",
-      "value": "http://localhost:8080/api/v1"
+      "value": "https://api.satzone.dev/api/v1"
     }
   ],
   "item": [
@@ -1916,6 +1916,256 @@
       ]
     },
     {
+      "name": "Practice",
+      "item": [
+        {
+          "name": "Get my practice pack (student)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "if (j && j.id) pm.environment.set('practice_pack_id', j.id);",
+                  "if (j && j.quizzes && j.quizzes[0]) pm.environment.set('practice_quiz_id', j.quizzes[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/courses/{{course_id}}/practice",
+            "description": "Returns the published practice pack for an enrolled course with per-quiz progress. 403 not_enrolled if the user hasn't bought the course."
+          }
+        },
+        {
+          "name": "Get practice quiz (student)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "if (j && j.items && j.items[0]) pm.environment.set('practice_item_id', j.items[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/practice/quizzes/{{practice_quiz_id}}",
+            "description": "Returns the published quiz with items. MCQ options keep ids but drop is_correct; matching items expose shuffled lefts and rights keyed on the pair id."
+          }
+        },
+        {
+          "name": "Submit practice attempt",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "if (j && j.id) pm.environment.set('practice_attempt_id', j.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"started_at\": null,\n  \"answers\": [\n    {\n      \"item_id\": \"{{practice_item_id}}\",\n      \"option_id\": \"a\"\n    }\n  ]\n}"
+            },
+            "url": "{{base_url}}/practice/quizzes/{{practice_quiz_id}}/attempts",
+            "description": "Submit one play-through. Each answer entry is discriminated on shape: MCQ supplies option_id, matching supplies pairs[]. Response carries per-item results + aggregate score_percent."
+          }
+        },
+        {
+          "name": "Instructor: get pack",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "if (j && j.id) pm.environment.set('practice_pack_id', j.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/instructor/courses/{{instructor_course_id}}/practice",
+            "description": "Auto-creates the pack on first read. Returns the instructor view (quiz summaries with order + is_published)."
+          }
+        },
+        {
+          "name": "Instructor: update pack",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Vocabulary drills\",\n  \"description\": \"Bite-sized practice to lock in this week's lessons.\"\n}"
+            },
+            "url": "{{base_url}}/instructor/courses/{{instructor_course_id}}/practice"
+          }
+        },
+        {
+          "name": "Instructor: create quiz",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "if (j && j.id) pm.environment.set('practice_quiz_id', j.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Lesson 1\",\n  \"description\": \"Match and tap to practice the basics.\",\n  \"is_published\": false\n}"
+            },
+            "url": "{{base_url}}/instructor/courses/{{instructor_course_id}}/practice/quizzes"
+          }
+        },
+        {
+          "name": "Instructor: get quiz with answer key",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/instructor/practice/quizzes/{{practice_quiz_id}}",
+            "description": "Includes is_correct on MCQ options and the raw left/right pair labels for matching items."
+          }
+        },
+        {
+          "name": "Instructor: publish quiz",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_published\": true\n}"
+            },
+            "url": "{{base_url}}/instructor/practice/quizzes/{{practice_quiz_id}}"
+          }
+        },
+        {
+          "name": "Instructor: delete quiz",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/instructor/practice/quizzes/{{practice_quiz_id}}"
+          }
+        },
+        {
+          "name": "Instructor: add MCQ item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const j = pm.response.json();",
+                  "if (j && j.id) pm.environment.set('practice_item_id', j.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"mcq\",\n  \"points\": 1,\n  \"data\": {\n    \"type\": \"mcq\",\n    \"prompt\": \"Tap the apple\",\n    \"options\": [\n      {\"id\": \"a\", \"text\": \"Apple\", \"is_correct\": true},\n      {\"id\": \"b\", \"text\": \"Banana\", \"is_correct\": false},\n      {\"id\": \"c\", \"text\": \"Cherry\", \"is_correct\": false}\n    ]\n  }\n}"
+            },
+            "url": "{{base_url}}/instructor/practice/quizzes/{{practice_quiz_id}}/items"
+          }
+        },
+        {
+          "name": "Instructor: add matching item",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"matching\",\n  \"points\": 1,\n  \"data\": {\n    \"type\": \"matching\",\n    \"prompt\": \"Match the English word to its French translation\",\n    \"pairs\": [\n      {\"id\": \"p1\", \"left\": \"Apple\", \"right\": \"Pomme\"},\n      {\"id\": \"p2\", \"left\": \"Bread\", \"right\": \"Pain\"},\n      {\"id\": \"p3\", \"left\": \"Water\", \"right\": \"Eau\"}\n    ]\n  }\n}"
+            },
+            "url": "{{base_url}}/instructor/practice/quizzes/{{practice_quiz_id}}/items"
+          }
+        },
+        {
+          "name": "Instructor: replace item",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"mcq\",\n  \"points\": 2,\n  \"data\": {\n    \"type\": \"mcq\",\n    \"prompt\": \"Pick the verb\",\n    \"options\": [\n      {\"id\": \"a\", \"text\": \"Run\", \"is_correct\": true},\n      {\"id\": \"b\", \"text\": \"Red\", \"is_correct\": false}\n    ]\n  }\n}"
+            },
+            "url": "{{base_url}}/instructor/practice/items/{{practice_item_id}}"
+          }
+        },
+        {
+          "name": "Instructor: delete item",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/instructor/practice/items/{{practice_item_id}}"
+          }
+        }
+      ]
+    },
+    {
       "name": "Account & Settings",
       "item": [
         {
@@ -2086,8 +2336,16 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
-            "body": {"mode": "raw", "raw": "{\n  \"lesson_id\": \"{{lesson_id}}\",\n  \"title\": \"Quick recap\",\n  \"body\": \"Recap of what I just watched.\",\n  \"timestamp_seconds\": 60\n}"},
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lesson_id\": \"{{lesson_id}}\",\n  \"title\": \"Quick recap\",\n  \"body\": \"Recap of what I just watched.\",\n  \"timestamp_seconds\": 60\n}"
+            },
             "url": "{{base_url}}/me/notes"
           }
         },
@@ -2097,11 +2355,23 @@
             "method": "GET",
             "url": {
               "raw": "{{base_url}}/me/notes?lesson_id={{lesson_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["me", "notes"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "me",
+                "notes"
+              ],
               "query": [
-                {"key": "lesson_id", "value": "{{lesson_id}}"},
-                {"key": "course_id", "value": "{{course_id}}", "disabled": true}
+                {
+                  "key": "lesson_id",
+                  "value": "{{lesson_id}}"
+                },
+                {
+                  "key": "course_id",
+                  "value": "{{course_id}}",
+                  "disabled": true
+                }
               ]
             }
           }
@@ -2110,8 +2380,16 @@
           "name": "Update note",
           "request": {
             "method": "PATCH",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
-            "body": {"mode": "raw", "raw": "{\n  \"body\": \"Updated note text.\"\n}"},
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Updated note text.\"\n}"
+            },
             "url": "{{base_url}}/me/notes/{{note_id}}"
           }
         },
@@ -2163,8 +2441,16 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
-            "body": {"mode": "raw", "raw": "{\n  \"attachment_id\": \"{{attachment_id}}\"\n}"},
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"attachment_id\": \"{{attachment_id}}\"\n}"
+            },
             "url": "{{base_url}}/me/downloads"
           }
         },
@@ -2199,8 +2485,16 @@
           "name": "Set weekly goal",
           "request": {
             "method": "PUT",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
-            "body": {"mode": "raw", "raw": "{\n  \"weekly_goal_minutes\": 180\n}"},
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"weekly_goal_minutes\": 180\n}"
+            },
             "url": "{{base_url}}/me/activity/weekly-goal"
           }
         }
@@ -2226,8 +2520,16 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
-            "body": {"mode": "raw", "raw": "{\n  \"card_number\": \"8600490100000000\",\n  \"expires_month\": 12,\n  \"expires_year\": 2027,\n  \"cardholder_name\": \"DEMO USER\",\n  \"set_default\": true\n}"},
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"card_number\": \"8600490100000000\",\n  \"expires_month\": 12,\n  \"expires_year\": 2027,\n  \"cardholder_name\": \"DEMO USER\",\n  \"set_default\": true\n}"
+            },
             "url": "{{base_url}}/me/payment-methods"
           }
         },
@@ -2249,8 +2551,16 @@
           "name": "Confirm card verification",
           "request": {
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
-            "body": {"mode": "raw", "raw": "{\n  \"code\": \"666666\"\n}"},
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"666666\"\n}"
+            },
             "url": "{{base_url}}/me/payment-methods/{{payment_method_id}}/verify/confirm"
           }
         },
@@ -2277,8 +2587,16 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
-            "body": {"mode": "raw", "raw": "{\n  \"item_kind\": \"course\",\n  \"course_id\": \"{{course_id}}\"\n}"},
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"item_kind\": \"course\",\n  \"course_id\": \"{{course_id}}\"\n}"
+            },
             "url": "{{base_url}}/orders"
           }
         },
@@ -2286,8 +2604,16 @@
           "name": "Create order (program)",
           "request": {
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
-            "body": {"mode": "raw", "raw": "{\n  \"item_kind\": \"program\",\n  \"program_id\": \"{{program_id}}\"\n}"},
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"item_kind\": \"program\",\n  \"program_id\": \"{{program_id}}\"\n}"
+            },
             "url": "{{base_url}}/orders"
           }
         },
@@ -2309,8 +2635,16 @@
           "name": "Pay order (saved card)",
           "request": {
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
-            "body": {"mode": "raw", "raw": "{\n  \"payment_method_id\": \"{{payment_method_id}}\"\n}"},
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_method_id\": \"{{payment_method_id}}\"\n}"
+            },
             "url": "{{base_url}}/orders/{{order_id}}/pay/card"
           }
         },
@@ -2330,8 +2664,16 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
-            "body": {"mode": "raw", "raw": "{\n  \"return_url\": \"{{base_url}}/payments/return\"\n}"},
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"return_url\": \"{{base_url}}/payments/return\"\n}"
+            },
             "url": "{{base_url}}/orders/{{order_id}}/pay/payme"
           }
         },
@@ -2348,13 +2690,27 @@
             "auth": {
               "type": "basic",
               "basic": [
-                {"key": "username", "value": "Paycom"},
-                {"key": "password", "value": "{{payme_key}}"}
+                {
+                  "key": "username",
+                  "value": "Paycom"
+                },
+                {
+                  "key": "password",
+                  "value": "{{payme_key}}"
+                }
               ]
             },
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
-            "body": {"mode": "raw", "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"CheckPerformTransaction\",\n  \"params\": {\n    \"amount\": 10000,\n    \"account\": {\"order_id\": \"{{order_id}}\"}\n  }\n}"},
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"CheckPerformTransaction\",\n  \"params\": {\n    \"amount\": 10000,\n    \"account\": {\"order_id\": \"{{order_id}}\"}\n  }\n}"
+            },
             "url": "{{base_url}}/payments/payme/callback",
             "description": "Simulates a call FROM Payme to our backend. Set payme_key in the environment to PAYME_KEY from .env."
           }

@@ -1,0 +1,36 @@
+meta {
+  name: Create assessment
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/instructor/courses/{{instructor_course_id}}/assessments
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "title": "Quiz 1",
+    "description": "Basic check",
+    "pass_percent": 50,
+    "max_attempts": 3,
+    "shuffle_questions": false,
+    "show_correct_answers": true
+  }
+}
+
+tests {
+  test("201 Created", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j && j.id) bru.setEnvVar('assessment_id', j.id);
+}

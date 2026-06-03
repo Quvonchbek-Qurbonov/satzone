@@ -1,0 +1,15 @@
+meta {
+  name: List course students
+  type: http
+  seq: 29
+}
+
+get {
+  url: {{base_url}}/instructor/courses/{{instructor_course_id}}/students
+}
+
+query {
+  page: 1
+  size: 20
+  status: all
+}

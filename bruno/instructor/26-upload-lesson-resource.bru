@@ -1,0 +1,14 @@
+meta {
+  name: Upload lesson resource
+  type: http
+  seq: 26
+}
+
+post {
+  url: {{base_url}}/instructor/lessons/{{instructor_lesson_id}}/resource
+  body: multipart-form
+}
+
+body:multipart-form {
+  file: @file()
+}

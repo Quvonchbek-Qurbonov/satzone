@@ -1,0 +1,26 @@
+meta {
+  name: Upload lesson attachment
+  type: http
+  seq: 27
+}
+
+post {
+  url: {{base_url}}/instructor/lessons/{{instructor_lesson_id}}/attachments
+  body: multipart-form
+}
+
+body:multipart-form {
+  file: @file()
+  title: Lecture slides
+}
+
+script:post-response {
+  const json = res.getBody();
+  if (json && json.id) {
+  bru.setEnvVar('attachment_id', json.id);
+  }
+}
+
+docs {
+  Multi-file companion to 'Upload lesson resource'. Adds one downloadable LessonAttachment row (PDF / slides / code zip / …) for the lesson. Use this when a lesson needs to expose more than one downloadable file. Captures `attachment_id` for the delete + 'Save attachment for offline' flows.
+}

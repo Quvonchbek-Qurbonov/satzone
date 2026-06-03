@@ -1,0 +1,25 @@
+meta {
+  name: Enroll in course
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/me/enrollments
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "course_id": "{{course_id}}"
+  }
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j && j.id) bru.setEnvVar('enrollment_id', j.id);
+}

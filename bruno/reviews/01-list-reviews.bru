@@ -1,0 +1,15 @@
+meta {
+  name: List reviews
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/courses/{{course_slug}}/reviews
+  auth: none
+}
+
+query {
+  page: 1
+  size: 20
+}

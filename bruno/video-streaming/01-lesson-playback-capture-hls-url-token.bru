@@ -1,0 +1,20 @@
+meta {
+  name: Lesson playback (capture HLS URL + token)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/lessons/{{lesson_id}}/playback
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j.hls_url) {
+  bru.setEnvVar('lesson_hls_url', j.hls_url);
+  const t = (j.hls_url.split('t=')[1] || '');
+  bru.setEnvVar('playback_token', t);
+  }
+  pm.test('playback issued', () => pm.expect(j).to.have.property('expires_at'));
+  pm.test('hls is the only path', () => pm.expect(j).to.not.have.property('stream_url'));
+}

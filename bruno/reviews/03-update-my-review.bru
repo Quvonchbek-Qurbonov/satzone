@@ -1,0 +1,21 @@
+meta {
+  name: Update my review
+  type: http
+  seq: 3
+}
+
+put {
+  url: {{base_url}}/courses/{{course_slug}}/reviews/me
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "rating": 4,
+    "comment": "Updated my take after finishing the course."
+  }
+}

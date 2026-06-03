@@ -1,0 +1,26 @@
+meta {
+  name: Upsert my profile
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{base_url}}/instructor/me/profile
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Instructor Demo",
+    "title": "Senior Engineer",
+    "bio": "Teaches APIs.",
+    "expertise": ["python", "fastapi"],
+    "linkedin_url": null,
+    "twitter_url": null,
+    "website_url": null
+  }
+}

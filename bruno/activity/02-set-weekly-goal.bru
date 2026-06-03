@@ -1,0 +1,20 @@
+meta {
+  name: Set weekly goal
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{base_url}}/me/activity/weekly-goal
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "weekly_goal_minutes": 180
+  }
+}

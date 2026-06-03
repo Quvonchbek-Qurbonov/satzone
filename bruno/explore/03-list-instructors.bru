@@ -1,0 +1,16 @@
+meta {
+  name: List instructors
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base_url}}/instructors
+  auth: none
+}
+
+query {
+  page: 1
+  size: 20
+  ~search: 
+}

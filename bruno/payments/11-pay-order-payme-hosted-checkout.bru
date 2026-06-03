@@ -1,0 +1,25 @@
+meta {
+  name: Pay order (Payme hosted checkout)
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{base_url}}/orders/{{order_id}}/pay/payme
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "return_url": "{{base_url}}/payments/return"
+  }
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j && j.checkout_url) bru.setEnvVar('payme_checkout_url', j.checkout_url);
+}

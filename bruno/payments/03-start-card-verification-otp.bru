@@ -1,0 +1,9 @@
+meta {
+  name: Start card verification (OTP)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base_url}}/me/payment-methods/{{payment_method_id}}/verify/start
+}

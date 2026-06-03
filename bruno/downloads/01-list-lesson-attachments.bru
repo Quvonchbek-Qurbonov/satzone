@@ -1,0 +1,14 @@
+meta {
+  name: List lesson attachments
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/lessons/{{lesson_id}}/attachments
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (Array.isArray(j) && j.length) bru.setEnvVar('attachment_id', j[0].id);
+}

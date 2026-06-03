@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Edure",
+    "title": "SATZone",
     "version": "1.0.0"
   },
   "paths": {
@@ -346,7 +346,7 @@
           "auth"
         ],
         "summary": "Verify Phone",
-        "description": "Consume an OTP minted by the Telegram bot (via POST /internal/phone/issue-otp) and bind its phone to the current user. The phone is looked up in Redis by OTP — no phone field is accepted here. Rate-limited per IP via the router-level rate_limit_auth dep.",
+        "description": "Consume an OTP minted by the Telegram bot and bind its phone to the user.\n\nThe bot calls ``POST /internal/phone/issue-otp`` with the phone number\nshared in chat; the backend stores ``otp \u2192 phone`` in Redis and returns\nthe OTP for the bot to display. The user types it here, the phone is\nlooked up by OTP, and on success it lands on ``users.phone_number`` with\n``is_phone_verified=True``. The endpoint is rate-limited per IP via the\nrouter-level ``rate_limit_auth`` dep, which is the only brake on OTP\nguessing \u2014 keep ``PHONE_CODE_LENGTH`` long enough that brute-forcing\nwithin the TTL stays infeasible (default 8 digits).",
         "operationId": "verify_phone_api_v1_auth_verify_phone_post",
         "requestBody": {
           "content": {
@@ -4949,6 +4949,632 @@
         }
       }
     },
+    "/api/v1/courses/{course_id}/practice": {
+      "get": {
+        "tags": [
+          "practice"
+        ],
+        "summary": "Get a course's practice pack with my progress",
+        "description": "Returns the published practice pack for an enrolled course along with the caller's progress on every published quiz. Returns ``null`` when the course has no pack yet.",
+        "operationId": "get_course_practice_api_v1_courses__course_id__practice_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "course_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Course Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/PracticePackStudentRead"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Course Practice Api V1 Courses  Course Id  Practice Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/practice/quizzes/{quiz_id}": {
+      "get": {
+        "tags": [
+          "practice"
+        ],
+        "summary": "Get a practice quiz with shuffled items",
+        "description": "Returns the published quiz with its items in the canonical order. Matching items have ``lefts`` and ``rights`` shuffled server-side so the order of options doesn't leak the answer.",
+        "operationId": "get_practice_quiz_api_v1_practice_quizzes__quiz_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "quiz_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Quiz Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PracticeQuizStudentRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/practice/quizzes/{quiz_id}/attempts": {
+      "post": {
+        "tags": [
+          "practice"
+        ],
+        "summary": "Submit answers for a practice quiz",
+        "description": "Grades a single attempt and returns the per-item result list along with the aggregate score. Unlimited attempts; the best score across attempts is what shows in progress views.",
+        "operationId": "submit_practice_attempt_api_v1_practice_quizzes__quiz_id__attempts_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "quiz_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Quiz Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PracticeAttemptCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PracticeAttemptResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/instructor/courses/{course_id}/practice": {
+      "get": {
+        "tags": [
+          "practice"
+        ],
+        "summary": "Get the practice pack for a course I own",
+        "operationId": "get_my_practice_pack_api_v1_instructor_courses__course_id__practice_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "course_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Course Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PracticePackInstructorRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "practice"
+        ],
+        "summary": "Update pack title / description",
+        "operationId": "update_my_practice_pack_api_v1_instructor_courses__course_id__practice_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "course_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Course Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PracticePackUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PracticePackInstructorRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/instructor/courses/{course_id}/practice/quizzes": {
+      "post": {
+        "tags": [
+          "practice"
+        ],
+        "summary": "Create a new practice quiz",
+        "operationId": "create_practice_quiz_api_v1_instructor_courses__course_id__practice_quizzes_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "course_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Course Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PracticeQuizCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PracticeQuizInstructorRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/instructor/practice/quizzes/{quiz_id}": {
+      "get": {
+        "tags": [
+          "practice"
+        ],
+        "summary": "Get a quiz with full answer key",
+        "operationId": "get_my_practice_quiz_api_v1_instructor_practice_quizzes__quiz_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "quiz_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Quiz Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PracticeQuizInstructorRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "practice"
+        ],
+        "summary": "Update a practice quiz",
+        "operationId": "update_practice_quiz_api_v1_instructor_practice_quizzes__quiz_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "quiz_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Quiz Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PracticeQuizUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PracticeQuizInstructorRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "practice"
+        ],
+        "summary": "Delete a practice quiz",
+        "operationId": "delete_practice_quiz_api_v1_instructor_practice_quizzes__quiz_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "quiz_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Quiz Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/instructor/practice/quizzes/{quiz_id}/items": {
+      "post": {
+        "tags": [
+          "practice"
+        ],
+        "summary": "Add an item (MCQ or matching) to a quiz",
+        "description": "Each quiz holds up to 50 items. The ``data`` payload is discriminated on ``type``: MCQ supplies ``options`` with exactly one ``is_correct`` flag; MATCHING supplies ``pairs`` whose ``id`` is the join key the student's answer references.",
+        "operationId": "add_practice_item_api_v1_instructor_practice_quizzes__quiz_id__items_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "quiz_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Quiz Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PracticeItemWrite"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PracticeItemInstructorRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/instructor/practice/items/{item_id}": {
+      "put": {
+        "tags": [
+          "practice"
+        ],
+        "summary": "Replace an item's payload",
+        "operationId": "update_practice_item_api_v1_instructor_practice_items__item_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Item Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PracticeItemWrite"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PracticeItemInstructorRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "practice"
+        ],
+        "summary": "Delete an item",
+        "operationId": "delete_practice_item_api_v1_instructor_practice_items__item_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Item Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/lessons/{lesson_id}/playback": {
       "get": {
         "tags": [
@@ -9038,7 +9664,7 @@
           "internal"
         ],
         "summary": "Issue Phone Otp",
-        "description": "Mint a one-time code for a phone number on behalf of the Telegram bot. The bot receives the user's shared contact in chat, calls this endpoint with the E.164 number, and shows the returned OTP back to the user. The user types it into the frontend, which hits POST /auth/verify-phone. Returns 409 phone_taken if the number is already verified on another account.",
+        "description": "Mint a one-time code for a phone number on behalf of the Telegram bot.\n\nThe bot receives the user's shared contact in chat, calls this endpoint\nwith the E.164 number, and shows the returned OTP back to the user. The\nuser then types it into the frontend, which hits ``POST /auth/verify-phone``\n\u2014 that's where the phone actually gets attached to a user. Until then\nnothing is written to ``users``; the (otp, phone) pair lives only in\nRedis with a TTL of ``PHONE_VERIFY_EXPIRE_MINUTES``.\n\nReturns 409 ``phone_taken`` if the number is already verified on another\naccount, so the bot can route the user to the login flow instead.",
         "operationId": "issue_phone_otp_api_v1_internal_phone_issue_otp_post",
         "parameters": [
           {
@@ -13415,6 +14041,39 @@
         ],
         "title": "InstructorSummary"
       },
+      "IssueOtpRequest": {
+        "properties": {
+          "phone_number": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 4,
+            "title": "Phone Number"
+          }
+        },
+        "type": "object",
+        "required": [
+          "phone_number"
+        ],
+        "title": "IssueOtpRequest"
+      },
+      "IssueOtpResponse": {
+        "properties": {
+          "otp": {
+            "type": "string",
+            "title": "Otp"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In"
+          }
+        },
+        "type": "object",
+        "required": [
+          "otp",
+          "expires_in"
+        ],
+        "title": "IssueOtpResponse"
+      },
       "LessonAdminRead": {
         "properties": {
           "id": {
@@ -14183,6 +14842,308 @@
           "refresh_token"
         ],
         "title": "LogoutRequest"
+      },
+      "MCQAnswer": {
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Item Id"
+          },
+          "option_id": {
+            "type": "string",
+            "title": "Option Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "item_id",
+          "option_id"
+        ],
+        "title": "MCQAnswer"
+      },
+      "MCQDataStudent": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "mcq",
+            "title": "Type"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/MCQOptionRead"
+            },
+            "type": "array",
+            "title": "Options"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "prompt",
+          "options"
+        ],
+        "title": "MCQDataStudent"
+      },
+      "MCQDataWrite": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "mcq",
+            "title": "Type",
+            "default": "mcq"
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Prompt"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/MCQOptionWrite"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "minItems": 2,
+            "title": "Options"
+          }
+        },
+        "type": "object",
+        "required": [
+          "prompt",
+          "options"
+        ],
+        "title": "MCQDataWrite"
+      },
+      "MCQOptionRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "text"
+        ],
+        "title": "MCQOptionRead",
+        "description": "Student-facing view \u2014 ``is_correct`` deliberately omitted."
+      },
+      "MCQOptionWrite": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
+          "is_correct": {
+            "type": "boolean",
+            "title": "Is Correct",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "text"
+        ],
+        "title": "MCQOptionWrite"
+      },
+      "MatchingAnswer": {
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Item Id"
+          },
+          "pairs": {
+            "items": {
+              "$ref": "#/components/schemas/MatchingPairAnswer"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Pairs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "item_id",
+          "pairs"
+        ],
+        "title": "MatchingAnswer"
+      },
+      "MatchingDataStudent": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "matching",
+            "title": "Type"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "lefts": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Lefts"
+          },
+          "rights": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Rights"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "prompt",
+          "lefts",
+          "rights"
+        ],
+        "title": "MatchingDataStudent",
+        "description": "Student-facing matching payload.\n\nSides are shuffled server-side and emitted as separate ``lefts`` and\n``rights`` lists keyed on the same pair id; the player drags between them\nand we re-derive correctness from the pair ids on submit."
+      },
+      "MatchingDataWrite": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "matching",
+            "title": "Type",
+            "default": "matching"
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Prompt"
+          },
+          "pairs": {
+            "items": {
+              "$ref": "#/components/schemas/MatchingPairWrite"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "minItems": 2,
+            "title": "Pairs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "prompt",
+          "pairs"
+        ],
+        "title": "MatchingDataWrite"
+      },
+      "MatchingPairAnswer": {
+        "properties": {
+          "left_id": {
+            "type": "string",
+            "title": "Left Id"
+          },
+          "right_id": {
+            "type": "string",
+            "title": "Right Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "left_id",
+          "right_id"
+        ],
+        "title": "MatchingPairAnswer"
+      },
+      "MatchingPairWrite": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Id"
+          },
+          "left": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Left"
+          },
+          "right": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Right"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "left",
+          "right"
+        ],
+        "title": "MatchingPairWrite"
       },
       "Message": {
         "properties": {
@@ -15743,38 +16704,709 @@
         ],
         "title": "PhoneVerifyRequest"
       },
-      "IssueOtpRequest": {
+      "PracticeAttemptCreate": {
         "properties": {
-          "phone_number": {
-            "type": "string",
-            "maxLength": 32,
-            "minLength": 4,
-            "title": "Phone Number"
-          }
-        },
-        "type": "object",
-        "required": [
-          "phone_number"
-        ],
-        "title": "IssueOtpRequest"
-      },
-      "IssueOtpResponse": {
-        "properties": {
-          "otp": {
-            "type": "string",
-            "title": "Otp"
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
           },
-          "expires_in": {
-            "type": "integer",
-            "title": "Expires In"
+          "answers": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/MCQAnswer"
+                },
+                {
+                  "$ref": "#/components/schemas/MatchingAnswer"
+                }
+              ]
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Answers"
           }
         },
         "type": "object",
         "required": [
-          "otp",
-          "expires_in"
+          "answers"
         ],
-        "title": "IssueOtpResponse"
+        "title": "PracticeAttemptCreate"
+      },
+      "PracticeAttemptResult": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "quiz_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Quiz Id"
+          },
+          "score_percent": {
+            "type": "integer",
+            "title": "Score Percent"
+          },
+          "correct_count": {
+            "type": "integer",
+            "title": "Correct Count"
+          },
+          "total_count": {
+            "type": "integer",
+            "title": "Total Count"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Completed At"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/PracticeItemResult"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "quiz_id",
+          "score_percent",
+          "correct_count",
+          "total_count",
+          "completed_at",
+          "results"
+        ],
+        "title": "PracticeAttemptResult"
+      },
+      "PracticeItemInstructorRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "type": {
+            "$ref": "#/components/schemas/PracticeItemType"
+          },
+          "order": {
+            "type": "integer",
+            "title": "Order"
+          },
+          "points": {
+            "type": "integer",
+            "title": "Points"
+          },
+          "data": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "order",
+          "points",
+          "data"
+        ],
+        "title": "PracticeItemInstructorRead"
+      },
+      "PracticeItemResult": {
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Item Id"
+          },
+          "is_correct": {
+            "type": "boolean",
+            "title": "Is Correct"
+          },
+          "awarded_points": {
+            "type": "integer",
+            "title": "Awarded Points"
+          }
+        },
+        "type": "object",
+        "required": [
+          "item_id",
+          "is_correct",
+          "awarded_points"
+        ],
+        "title": "PracticeItemResult"
+      },
+      "PracticeItemStudentRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "type": {
+            "$ref": "#/components/schemas/PracticeItemType"
+          },
+          "order": {
+            "type": "integer",
+            "title": "Order"
+          },
+          "points": {
+            "type": "integer",
+            "title": "Points"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MCQDataStudent"
+              },
+              {
+                "$ref": "#/components/schemas/MatchingDataStudent"
+              }
+            ],
+            "title": "Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "order",
+          "points",
+          "data"
+        ],
+        "title": "PracticeItemStudentRead"
+      },
+      "PracticeItemType": {
+        "type": "string",
+        "enum": [
+          "mcq",
+          "matching"
+        ],
+        "title": "PracticeItemType"
+      },
+      "PracticeItemWrite": {
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/PracticeItemType"
+          },
+          "points": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Points",
+            "default": 1
+          },
+          "order": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MCQDataWrite"
+              },
+              {
+                "$ref": "#/components/schemas/MatchingDataWrite"
+              }
+            ],
+            "title": "Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "data"
+        ],
+        "title": "PracticeItemWrite"
+      },
+      "PracticePackInstructorRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "course_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Course Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "quizzes": {
+            "items": {
+              "$ref": "#/components/schemas/PracticeQuizSummary"
+            },
+            "type": "array",
+            "title": "Quizzes",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "course_id"
+        ],
+        "title": "PracticePackInstructorRead"
+      },
+      "PracticePackStudentRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "course_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Course Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "quizzes": {
+            "items": {
+              "$ref": "#/components/schemas/PracticeQuizStudentSummary"
+            },
+            "type": "array",
+            "title": "Quizzes",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "course_id"
+        ],
+        "title": "PracticePackStudentRead"
+      },
+      "PracticePackUpdate": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "title": "PracticePackUpdate"
+      },
+      "PracticeQuizCreate": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "order": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order"
+          },
+          "is_published": {
+            "type": "boolean",
+            "title": "Is Published",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "title": "PracticeQuizCreate"
+      },
+      "PracticeQuizInstructorRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "order": {
+            "type": "integer",
+            "title": "Order"
+          },
+          "is_published": {
+            "type": "boolean",
+            "title": "Is Published"
+          },
+          "item_count": {
+            "type": "integer",
+            "title": "Item Count",
+            "default": 0
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PracticeItemInstructorRead"
+            },
+            "type": "array",
+            "title": "Items",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "order",
+          "is_published"
+        ],
+        "title": "PracticeQuizInstructorRead"
+      },
+      "PracticeQuizStudentProgress": {
+        "properties": {
+          "completed": {
+            "type": "boolean",
+            "title": "Completed",
+            "default": false
+          },
+          "best_score_percent": {
+            "type": "integer",
+            "title": "Best Score Percent",
+            "default": 0
+          },
+          "attempts_count": {
+            "type": "integer",
+            "title": "Attempts Count",
+            "default": 0
+          },
+          "last_attempted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Attempted At"
+          }
+        },
+        "type": "object",
+        "title": "PracticeQuizStudentProgress"
+      },
+      "PracticeQuizStudentRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "order": {
+            "type": "integer",
+            "title": "Order"
+          },
+          "is_published": {
+            "type": "boolean",
+            "title": "Is Published"
+          },
+          "item_count": {
+            "type": "integer",
+            "title": "Item Count",
+            "default": 0
+          },
+          "progress": {
+            "$ref": "#/components/schemas/PracticeQuizStudentProgress",
+            "default": {
+              "completed": false,
+              "best_score_percent": 0,
+              "attempts_count": 0
+            }
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PracticeItemStudentRead"
+            },
+            "type": "array",
+            "title": "Items",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "order",
+          "is_published"
+        ],
+        "title": "PracticeQuizStudentRead"
+      },
+      "PracticeQuizStudentSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "order": {
+            "type": "integer",
+            "title": "Order"
+          },
+          "is_published": {
+            "type": "boolean",
+            "title": "Is Published"
+          },
+          "item_count": {
+            "type": "integer",
+            "title": "Item Count",
+            "default": 0
+          },
+          "progress": {
+            "$ref": "#/components/schemas/PracticeQuizStudentProgress",
+            "default": {
+              "completed": false,
+              "best_score_percent": 0,
+              "attempts_count": 0
+            }
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "order",
+          "is_published"
+        ],
+        "title": "PracticeQuizStudentSummary"
+      },
+      "PracticeQuizSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "order": {
+            "type": "integer",
+            "title": "Order"
+          },
+          "is_published": {
+            "type": "boolean",
+            "title": "Is Published"
+          },
+          "item_count": {
+            "type": "integer",
+            "title": "Item Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "order",
+          "is_published"
+        ],
+        "title": "PracticeQuizSummary"
+      },
+      "PracticeQuizUpdate": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "order": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order"
+          },
+          "is_published": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Published"
+          }
+        },
+        "type": "object",
+        "title": "PracticeQuizUpdate"
       },
       "PreviewPlaybackResponse": {
         "properties": {

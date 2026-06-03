@@ -1,0 +1,33 @@
+meta {
+  name: Register
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/auth/register
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "email": "new-user-{{$timestamp}}@satzone.local",
+    "full_name": "New User",
+    "password": "Sup3rSecret!"
+  }
+}
+
+tests {
+  test("202 Accepted", function() {
+    expect(res.getStatus()).to.equal(202);
+  });
+}
+
+script:post-response {
+  // Register no longer creates a user — verification email must be redeemed via POST /auth/verify-email.
+}
