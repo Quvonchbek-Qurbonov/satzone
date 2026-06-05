@@ -6,4 +6,9 @@ meta {
 
 delete {
   url: {{base_url}}/instructor/options/{{option_id}}/image
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
 }

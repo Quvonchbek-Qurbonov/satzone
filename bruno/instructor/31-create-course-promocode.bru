@@ -1,0 +1,37 @@
+meta {
+  name: Create course promocode
+  type: http
+  seq: 31
+}
+
+post {
+  url: {{base_url}}/instructor/courses/{{instructor_course_id}}/promocodes
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "code": "LAUNCH50",
+    "discount_kind": "percent",
+    "discount_value": 50
+  }
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j && j.id) bru.setEnvVar('promocode_id', j.id);
+  if (j && j.code) bru.setEnvVar('promocode', j.code);
+}
+
+docs {
+  Issue a single-use promocode for one of your courses. Captures `promocode_id` + `promocode`.
+}

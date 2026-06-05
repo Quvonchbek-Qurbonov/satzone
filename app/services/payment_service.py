@@ -38,9 +38,9 @@ from app.models.enums import (
 )
 from app.models.payment import Order, PaymentMethod, Transaction
 from app.models.program import Program
+from app.models.promocode import Promocode
 from app.models.user import User
-from app.services import enrollment_service, program_service
-from app.services import payme_client
+from app.services import enrollment_service, payme_client, program_service, promocode_service
 
 logger = get_logger(__name__)
 
@@ -180,26 +180,34 @@ async def create_order(
     item_kind: OrderItemKind,
     course_id: uuid.UUID | None,
     program_id: uuid.UUID | None,
+    promocode: str | None = None,
 ) -> Order:
     if item_kind is OrderItemKind.COURSE:
-        course = await _published_course(session, course_id)
-        amount_cents = course.effective_price_cents
+        course = await get_published_course(session, course_id)
+        original_amount = course.effective_price_cents
         currency = course.currency
-        if amount_cents == 0:
+        if original_amount == 0:
             raise ValidationAppError(
                 "Course is free — call /me/enrollments directly", code="free_item"
             )
     else:
+        if promocode:
+            raise ValidationAppError(
+                "Promocodes are not supported for program orders",
+                code="promocode_not_applicable",
+            )
         program = await _published_program(session, program_id)
-        amount_cents = program.price_cents
+        original_amount = program.price_cents
         currency = program.currency
-        if amount_cents == 0:
+        if original_amount == 0:
             raise ValidationAppError(
                 "Program is free — call /programs/{id}/enroll directly",
                 code="free_item",
             )
 
-    # Reuse a pending order for the same item if any (idempotency for double-clicks).
+    # Reuse a pending order for the same item (idempotency for double-clicks).
+    # A different promo code on retry replaces the prior reservation so the
+    # buyer can swap codes without leaking the old reservation.
     existing = (
         await session.execute(
             select(Order).where(
@@ -211,15 +219,71 @@ async def create_order(
             )
         )
     ).scalar_one_or_none()
+
+    promo: Promocode | None = None
+    discount_cents = 0
+    if promocode and item_kind is OrderItemKind.COURSE and course_id is not None:
+        promo = await promocode_service.find_active_promocode_for_course(
+            session, code=promocode, course_id=course_id
+        )
+        discount_cents = promocode_service.compute_discount_cents(
+            kind=promo.discount_kind,
+            value=promo.discount_value,
+            base_amount_cents=original_amount,
+        )
+        final_amount = original_amount - discount_cents
+        if final_amount <= 0:
+            raise ValidationAppError(
+                "Promocode would make the order free; use free enrollment instead",
+                code="promocode_makes_free",
+            )
+    else:
+        final_amount = original_amount
+
     if existing is not None:
+        # If the buyer is re-applying the same code, return the order untouched.
+        if existing.promocode_id == (promo.id if promo else None):
+            return existing
+        # Otherwise: release the previous reservation, then attempt the new one.
+        if existing.promocode_id is not None:
+            await promocode_service.release(session, existing.promocode_id)
+            existing.promocode_id = None
+            existing.discount_cents = 0
+            existing.original_amount_cents = None
+            existing.amount_cents = original_amount
+            await session.flush()
+        if promo is not None:
+            if not await promocode_service.try_reserve(session, promo):
+                await session.rollback()
+                raise ConflictError(
+                    "Promocode has already been used",
+                    code="promocode_exhausted",
+                )
+            existing.promocode_id = promo.id
+            existing.discount_cents = discount_cents
+            existing.original_amount_cents = original_amount
+            existing.amount_cents = final_amount
+        await session.commit()
+        await session.refresh(existing)
         return existing
+
+    if promo is not None:
+        if not await promocode_service.try_reserve(session, promo):
+            await session.rollback()
+            raise ConflictError(
+                "Promocode has already been used",
+                code="promocode_exhausted",
+            )
 
     order = Order(
         user_id=user.id,
         item_kind=item_kind,
         course_id=course_id,
         program_id=program_id,
-        amount_cents=amount_cents,
+        amount_cents=final_amount,
+        original_amount_cents=original_amount if promo is not None else None,
+        discount_cents=discount_cents,
+        promocode_id=promo.id if promo is not None else None,
         currency=currency,
         status=OrderStatus.PENDING,
     )
@@ -247,6 +311,8 @@ async def cancel_order(session: AsyncSession, user: User, order_id: uuid.UUID) -
     order = await get_order(session, user, order_id)
     if order.status not in {OrderStatus.PENDING, OrderStatus.PROCESSING}:
         raise ConflictError("Order cannot be cancelled in its current state")
+    if order.promocode_id is not None:
+        await promocode_service.release(session, order.promocode_id)
     order.status = OrderStatus.CANCELLED
     order.cancelled_at = _now()
     await session.commit()
@@ -340,7 +406,7 @@ async def _grant_entitlement(session: AsyncSession, order: Order) -> None:
 # --- Lookups ------------------------------------------------------------
 
 
-async def _published_course(session: AsyncSession, course_id: uuid.UUID | None) -> Course:
+async def get_published_course(session: AsyncSession, course_id: uuid.UUID | None) -> Course:
     if course_id is None:
         raise ValidationAppError("course_id required")
     course = (
@@ -551,6 +617,12 @@ async def _cancel_transaction(session: AsyncSession, params: dict[str, Any]) -> 
     if new_state == TransactionState.REVERSED:
         txn.order.status = OrderStatus.REFUNDED
     else:
+        # Cancel-before-perform: release the promocode reservation so the
+        # next buyer can use the code. Refund-after-perform keeps the
+        # consumption — the seat was sold and then returned, but the code
+        # itself is single-use.
+        if txn.order.promocode_id is not None:
+            await promocode_service.release(session, txn.order.promocode_id)
         txn.order.status = OrderStatus.CANCELLED
         txn.order.cancelled_at = txn.cancel_time
     await session.commit()

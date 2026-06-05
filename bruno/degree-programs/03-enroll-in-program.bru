@@ -6,4 +6,9 @@ meta {
 
 post {
   url: {{base_url}}/programs/{{program_id}}/enroll
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
 }

@@ -7,10 +7,15 @@ meta {
 put {
   url: {{base_url}}/me/enrollments/{{enrollment_id}}/lessons/{{lesson_id}}/progress
   body: json
+  auth: bearer
 }
 
 headers {
   Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{access_token}}
 }
 
 body:json {

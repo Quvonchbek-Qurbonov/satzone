@@ -1,0 +1,14 @@
+meta {
+  name: List course promocodes
+  type: http
+  seq: 32
+}
+
+get {
+  url: {{base_url}}/instructor/courses/{{instructor_course_id}}/promocodes
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}

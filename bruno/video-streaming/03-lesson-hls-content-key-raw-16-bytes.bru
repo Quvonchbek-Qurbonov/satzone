@@ -6,8 +6,13 @@ meta {
 
 get {
   url: {{base_url}}/lessons/{{lesson_id}}/hls/key
+  auth: bearer
 }
 
 query {
   t: {{playback_token}}
+}
+
+auth:bearer {
+  token: {{access_token}}
 }

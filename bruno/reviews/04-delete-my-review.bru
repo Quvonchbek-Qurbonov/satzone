@@ -6,4 +6,9 @@ meta {
 
 delete {
   url: {{base_url}}/courses/{{course_slug}}/reviews/me
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
 }

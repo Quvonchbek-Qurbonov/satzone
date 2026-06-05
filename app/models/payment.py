@@ -99,6 +99,9 @@ class Order(UUIDPKMixin, TimestampMixin, Base):
     __tablename__ = "orders"
     __table_args__ = (
         CheckConstraint("amount_cents > 0", name="amount_positive"),
+        CheckConstraint(
+            "discount_cents >= 0", name="discount_cents_non_negative"
+        ),
         Index("ix_orders_user_status", "user_id", "status"),
     )
 
@@ -115,6 +118,16 @@ class Order(UUIDPKMixin, TimestampMixin, Base):
 
     amount_cents: Mapped[int] = mapped_column(Integer, nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="UZS")
+
+    # Promocode applied at order creation. ``promocode_id`` is the reservation
+    # holder — released on cancel, kept on paid. ``discount_cents`` records
+    # how much was knocked off ``original_amount_cents`` so audit / refunds
+    # can reconstruct the math; ``amount_cents`` is what Payme charges.
+    promocode_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("promocodes.id", ondelete="SET NULL"), index=True
+    )
+    original_amount_cents: Mapped[int | None] = mapped_column(Integer)
+    discount_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     status: Mapped[OrderStatus] = mapped_column(
         order_status_enum, nullable=False, default=OrderStatus.PENDING, index=True

@@ -6,10 +6,15 @@ meta {
 
 get {
   url: {{base_url}}/me/enrollments
+  auth: bearer
 }
 
 query {
   page: 1
   size: 20
   status: all
+}
+
+auth:bearer {
+  token: {{access_token}}
 }

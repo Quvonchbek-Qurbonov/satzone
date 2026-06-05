@@ -6,9 +6,14 @@ meta {
 
 get {
   url: {{base_url}}/instructor/courses/{{instructor_course_id}}/assessments
+  auth: bearer
 }
 
 query {
   page: 1
   size: 20
+}
+
+auth:bearer {
+  token: {{access_token}}
 }

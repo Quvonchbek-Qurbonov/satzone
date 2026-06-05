@@ -1,0 +1,36 @@
+meta {
+  name: Create order (course + promocode)
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{base_url}}/orders
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "item_kind": "course",
+    "course_id": "{{course_id}}",
+    "promocode": "{{promocode}}"
+  }
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j && j.id) bru.setEnvVar('order_id', j.id);
+}
+
+docs {
+  Reserves one use of the promocode atomically. amount_cents on the returned order is already discounted; original_amount_cents + discount_cents record the math.
+}

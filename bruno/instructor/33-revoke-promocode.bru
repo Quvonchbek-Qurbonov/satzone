@@ -1,0 +1,18 @@
+meta {
+  name: Revoke promocode
+  type: http
+  seq: 33
+}
+
+delete {
+  url: {{base_url}}/instructor/promocodes/{{promocode_id}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+docs {
+  Deletes an unused promocode outright; soft-deactivates one with uses>0.
+}

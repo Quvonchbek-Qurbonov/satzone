@@ -6,6 +6,11 @@ meta {
 
 get {
   url: {{base_url}}/practice/quizzes/{{practice_quiz_id}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
 }
 
 tests {

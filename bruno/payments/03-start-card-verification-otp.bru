@@ -6,4 +6,9 @@ meta {
 
 post {
   url: {{base_url}}/me/payment-methods/{{payment_method_id}}/verify/start
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
 }

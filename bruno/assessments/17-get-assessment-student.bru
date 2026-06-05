@@ -6,4 +6,9 @@ meta {
 
 get {
   url: {{base_url}}/assessments/{{assessment_id}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
 }

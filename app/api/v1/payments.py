@@ -97,6 +97,7 @@ async def create_order(
         item_kind=payload.item_kind,
         course_id=payload.course_id,
         program_id=payload.program_id,
+        promocode=payload.promocode,
     )
     return OrderRead.model_validate(order)
 

@@ -1,9 +1,14 @@
 meta {
   name: Cancel order
   type: http
-  seq: 9
+  seq: 11
 }
 
 delete {
   url: {{base_url}}/orders/{{order_id}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
 }

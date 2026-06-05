@@ -6,4 +6,9 @@ meta {
 
 delete {
   url: {{base_url}}/admin/programs/{{admin_program_id}}/courses/{{instructor_course_id}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
 }

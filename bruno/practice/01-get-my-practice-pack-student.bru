@@ -6,6 +6,11 @@ meta {
 
 get {
   url: {{base_url}}/courses/{{course_id}}/practice
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
 }
 
 tests {

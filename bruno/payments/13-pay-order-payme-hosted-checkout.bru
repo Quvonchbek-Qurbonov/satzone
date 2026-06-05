@@ -1,16 +1,21 @@
 meta {
   name: Pay order (Payme hosted checkout)
   type: http
-  seq: 11
+  seq: 13
 }
 
 post {
   url: {{base_url}}/orders/{{order_id}}/pay/payme
   body: json
+  auth: bearer
 }
 
 headers {
   Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{access_token}}
 }
 
 body:json {

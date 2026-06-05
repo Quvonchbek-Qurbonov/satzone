@@ -71,6 +71,10 @@ class OrderCreate(BaseModel):
     item_kind: OrderItemKind
     course_id: uuid.UUID | None = None
     program_id: uuid.UUID | None = None
+    # Optional instructor-issued promo code (course orders only). Stored
+    # upper-case so matching is case-insensitive. Returns
+    # ``promocode_not_applicable`` if the order is for a program.
+    promocode: str | None = Field(default=None, min_length=1, max_length=40)
 
     @field_validator("program_id")
     @classmethod
@@ -83,6 +87,14 @@ class OrderCreate(BaseModel):
             raise ValueError("program_id required when item_kind=program")
         return v
 
+    @field_validator("promocode")
+    @classmethod
+    def _normalize_promocode(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = v.strip().upper()
+        return v or None
+
 
 class OrderRead(ORMModel):
     id: uuid.UUID
@@ -90,6 +102,9 @@ class OrderRead(ORMModel):
     course_id: uuid.UUID | None = None
     program_id: uuid.UUID | None = None
     amount_cents: int
+    original_amount_cents: int | None = None
+    discount_cents: int = 0
+    promocode_id: uuid.UUID | None = None
     currency: str
     status: OrderStatus
     provider: PaymentProvider | None = None

@@ -6,6 +6,11 @@ meta {
 
 get {
   url: {{base_url}}/lessons/{{lesson_id}}/attachments
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
 }
 
 script:post-response {

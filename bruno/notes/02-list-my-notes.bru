@@ -6,9 +6,14 @@ meta {
 
 get {
   url: {{base_url}}/me/notes
+  auth: bearer
 }
 
 query {
   lesson_id: {{lesson_id}}
   ~course_id: {{course_id}}
+}
+
+auth:bearer {
+  token: {{access_token}}
 }

@@ -6,4 +6,9 @@ meta {
 
 delete {
   url: {{base_url}}/me/notes/{{note_id}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
 }

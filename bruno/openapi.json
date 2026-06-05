@@ -3994,6 +3994,158 @@
         }
       }
     },
+    "/api/v1/instructor/courses/{course_id}/promocodes": {
+      "get": {
+        "tags": [
+          "instructor"
+        ],
+        "summary": "List Course Promocodes",
+        "description": "List every promocode the instructor has issued for ``course_id``.\n\nOrdered newest-first. Includes revoked / exhausted codes so the\ninstructor can audit usage; ``is_active`` and ``uses_count`` tell the\nUI which ones are still redeemable.",
+        "operationId": "list_course_promocodes_api_v1_instructor_courses__course_id__promocodes_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "course_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Course Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PromocodeRead"
+                  },
+                  "title": "Response List Course Promocodes Api V1 Instructor Courses  Course Id  Promocodes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "instructor"
+        ],
+        "summary": "Create Course Promocode",
+        "description": "Issue a single-use promocode for one of the instructor's courses.\n\nFails with ``promocode_code_taken`` (409) if the chosen code is\nalready in use anywhere in the system, ``course_is_free`` (422) if\nthe course costs nothing, ``discount_exceeds_price`` /\n``discount_makes_free`` (422) if the discount would zero out the\nprice.",
+        "operationId": "create_course_promocode_api_v1_instructor_courses__course_id__promocodes_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "course_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Course Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromocodeCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromocodeRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/instructor/promocodes/{promocode_id}": {
+      "delete": {
+        "tags": [
+          "instructor"
+        ],
+        "summary": "Revoke Promocode",
+        "description": "Revoke an instructor-owned promocode.\n\nIf the code has never been used the row is deleted outright. If it\nhas been redeemed (``uses_count > 0``), it is soft-revoked\n(``is_active=false``) so the order's FK remains valid; the code\ncannot be redeemed again either way.",
+        "operationId": "revoke_promocode_api_v1_instructor_promocodes__promocode_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "promocode_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Promocode Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/instructor/courses/{course_id}/assessments": {
       "get": {
         "tags": [
@@ -6943,6 +7095,52 @@
             }
           }
         }
+      }
+    },
+    "/api/v1/promocodes/preview": {
+      "post": {
+        "tags": [
+          "promocodes"
+        ],
+        "summary": "Preview Promocode",
+        "operationId": "preview_promocode_api_v1_promocodes_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromocodePreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromocodePreviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/admin/users": {
@@ -15601,6 +15799,19 @@
               }
             ],
             "title": "Program Id"
+          },
+          "promocode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 40,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promocode"
           }
         },
         "type": "object",
@@ -15654,6 +15865,34 @@
           "amount_cents": {
             "type": "integer",
             "title": "Amount Cents"
+          },
+          "original_amount_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Amount Cents"
+          },
+          "discount_cents": {
+            "type": "integer",
+            "title": "Discount Cents",
+            "default": 0
+          },
+          "promocode_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promocode Id"
           },
           "currency": {
             "type": "string",
@@ -17975,6 +18214,190 @@
         },
         "type": "object",
         "title": "ProgramUpdate"
+      },
+      "PromocodeCreate": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 4,
+            "title": "Code"
+          },
+          "discount_kind": {
+            "$ref": "#/components/schemas/PromocodeDiscountKind"
+          },
+          "discount_value": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Discount Value"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "discount_kind",
+          "discount_value"
+        ],
+        "title": "PromocodeCreate",
+        "description": "Instructor creates a single-use promocode for one of their courses.\n\n``code`` is auto-normalized to upper-case so users may enter it in any\ncase. ``discount_value`` is the percent (1-100) when\n``discount_kind=\"percent\"`` or the amount in minor units (tiyin /\ncents) when ``discount_kind=\"fixed\"``."
+      },
+      "PromocodeDiscountKind": {
+        "type": "string",
+        "enum": [
+          "percent",
+          "fixed"
+        ],
+        "title": "PromocodeDiscountKind",
+        "description": "Discount math for an instructor-issued promo code."
+      },
+      "PromocodePreviewRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Code"
+          },
+          "course_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Course Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "course_id"
+        ],
+        "title": "PromocodePreviewRequest"
+      },
+      "PromocodePreviewResponse": {
+        "properties": {
+          "course_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Course Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "discount_kind": {
+            "$ref": "#/components/schemas/PromocodeDiscountKind"
+          },
+          "discount_value": {
+            "type": "integer",
+            "title": "Discount Value"
+          },
+          "original_amount_cents": {
+            "type": "integer",
+            "title": "Original Amount Cents"
+          },
+          "discount_cents": {
+            "type": "integer",
+            "title": "Discount Cents"
+          },
+          "final_amount_cents": {
+            "type": "integer",
+            "title": "Final Amount Cents"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          }
+        },
+        "type": "object",
+        "required": [
+          "course_id",
+          "code",
+          "discount_kind",
+          "discount_value",
+          "original_amount_cents",
+          "discount_cents",
+          "final_amount_cents",
+          "currency"
+        ],
+        "title": "PromocodePreviewResponse",
+        "description": "Server-side preview of how much a code shaves off a course price.\n\nMirrors what ``POST /orders`` will charge \u2014 the frontend can render\nthe discounted total before the user confirms checkout."
+      },
+      "PromocodeRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "course_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Course Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "discount_kind": {
+            "$ref": "#/components/schemas/PromocodeDiscountKind"
+          },
+          "discount_value": {
+            "type": "integer",
+            "title": "Discount Value"
+          },
+          "max_uses": {
+            "type": "integer",
+            "title": "Max Uses"
+          },
+          "uses_count": {
+            "type": "integer",
+            "title": "Uses Count"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "course_id",
+          "code",
+          "discount_kind",
+          "discount_value",
+          "max_uses",
+          "uses_count",
+          "is_active",
+          "created_at"
+        ],
+        "title": "PromocodeRead"
       },
       "PromoteInstructorRequest": {
         "properties": {

@@ -23,6 +23,7 @@ from app.api.v1 import (
     payments,
     practice,
     programs,
+    promocodes,
     streaming,
     wishlist,
 )
@@ -58,5 +59,6 @@ api_router.include_router(payments.methods_router)
 api_router.include_router(payments.orders_router)
 api_router.include_router(payments.me_orders_router)
 api_router.include_router(payments.payme_router)
+api_router.include_router(promocodes.router)
 api_router.include_router(admin.router)
 api_router.include_router(internal.router)

@@ -279,6 +279,18 @@
       "enabled": true
     },
     {
+      "key": "promocode_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "promocode",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
       "key": "payme_key",
       "value": "",
       "type": "secret",

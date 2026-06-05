@@ -101,3 +101,10 @@ class CardBrand(str, enum.Enum):
     VISA = "visa"
     MASTERCARD = "mastercard"
     UNKNOWN = "unknown"
+
+
+class PromocodeDiscountKind(str, enum.Enum):
+    """Discount math for an instructor-issued promo code."""
+
+    PERCENT = "percent"          # discount_value is 1..100
+    FIXED = "fixed"              # discount_value is amount in minor units (tiyin / cents)

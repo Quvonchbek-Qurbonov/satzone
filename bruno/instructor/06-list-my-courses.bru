@@ -6,6 +6,7 @@ meta {
 
 get {
   url: {{base_url}}/instructor/courses
+  auth: bearer
 }
 
 query {
@@ -13,4 +14,8 @@ query {
   size: 20
   ~status: 
   ~search: 
+}
+
+auth:bearer {
+  token: {{access_token}}
 }

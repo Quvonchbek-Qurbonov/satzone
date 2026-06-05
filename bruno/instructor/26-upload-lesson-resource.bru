@@ -7,6 +7,11 @@ meta {
 post {
   url: {{base_url}}/instructor/lessons/{{instructor_lesson_id}}/resource
   body: multipart-form
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
 }
 
 body:multipart-form {

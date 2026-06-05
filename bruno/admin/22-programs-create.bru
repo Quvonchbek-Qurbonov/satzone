@@ -7,10 +7,15 @@ meta {
 post {
   url: {{base_url}}/admin/programs
   body: json
+  auth: bearer
 }
 
 headers {
   Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{access_token}}
 }
 
 body:json {

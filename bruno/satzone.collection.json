@@ -1570,6 +1570,52 @@
             "method": "GET",
             "url": "{{base_url}}/instructor/courses/{{instructor_course_id}}/analytics"
           }
+        },
+        {
+          "name": "Create course promocode",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j && j.id) pm.environment.set('promocode_id', j.id);",
+                  "if (j && j.code) pm.environment.set('promocode', j.code);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"LAUNCH50\",\n  \"discount_kind\": \"percent\",\n  \"discount_value\": 50\n}"
+            },
+            "url": "{{base_url}}/instructor/courses/{{instructor_course_id}}/promocodes",
+            "description": "Issue a single-use promocode for one of your courses. Captures `promocode_id` + `promocode`."
+          }
+        },
+        {
+          "name": "List course promocodes",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/instructor/courses/{{instructor_course_id}}/promocodes"
+          }
+        },
+        {
+          "name": "Revoke promocode",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/instructor/promocodes/{{promocode_id}}",
+            "description": "Deletes an unused promocode outright; soft-deactivates one with uses>0."
+          }
         }
       ]
     },
@@ -2598,6 +2644,54 @@
               "raw": "{\n  \"item_kind\": \"course\",\n  \"course_id\": \"{{course_id}}\"\n}"
             },
             "url": "{{base_url}}/orders"
+          }
+        },
+        {
+          "name": "Create order (course + promocode)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j && j.id) pm.environment.set('order_id', j.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"item_kind\": \"course\",\n  \"course_id\": \"{{course_id}}\",\n  \"promocode\": \"{{promocode}}\"\n}"
+            },
+            "url": "{{base_url}}/orders",
+            "description": "Reserves one use of the promocode atomically. amount_cents on the returned order is already discounted; original_amount_cents + discount_cents record the math."
+          }
+        },
+        {
+          "name": "Preview promocode discount",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{promocode}}\",\n  \"course_id\": \"{{course_id}}\"\n}"
+            },
+            "url": "{{base_url}}/promocodes/preview",
+            "description": "Server-validated preview of what the buyer will pay if they apply `code` to `course_id`. Does NOT reserve the code."
           }
         },
         {

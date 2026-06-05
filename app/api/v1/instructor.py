@@ -48,7 +48,8 @@ from app.schemas.instructor_admin import (
     SectionUpdate,
     UploadResponse,
 )
-from app.services import assessment_service, instructor_service
+from app.schemas.promocode import PromocodeCreate, PromocodeRead
+from app.services import assessment_service, instructor_service, promocode_service
 from app.utils.hls import package_lesson_hls
 from app.utils.storage import media_url, save_upload
 
@@ -539,6 +540,78 @@ async def course_analytics(
     inst = await instructor_service.require_my_instructor(session, user)
     data = await instructor_service.course_analytics(session, inst, course_id)
     return CourseAnalytics.model_validate(data)
+
+
+# ---------- Promocodes ----------
+
+
+@router.get(
+    "/courses/{course_id}/promocodes", response_model=list[PromocodeRead]
+)
+async def list_course_promocodes(
+    course_id: uuid.UUID, user: CurrentUser, session: DbSession
+) -> list[PromocodeRead]:
+    """List every promocode the instructor has issued for ``course_id``.
+
+    Ordered newest-first. Includes revoked / exhausted codes so the
+    instructor can audit usage; ``is_active`` and ``uses_count`` tell the
+    UI which ones are still redeemable.
+    """
+    await _require_instructor_role(user)
+    inst = await instructor_service.require_my_instructor(session, user)
+    rows = await promocode_service.list_course_promocodes(session, inst, course_id)
+    return [PromocodeRead.model_validate(r) for r in rows]
+
+
+@router.post(
+    "/courses/{course_id}/promocodes",
+    response_model=PromocodeRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_course_promocode(
+    course_id: uuid.UUID,
+    payload: PromocodeCreate,
+    user: CurrentUser,
+    session: DbSession,
+) -> PromocodeRead:
+    """Issue a single-use promocode for one of the instructor's courses.
+
+    Fails with ``promocode_code_taken`` (409) if the chosen code is
+    already in use anywhere in the system, ``course_is_free`` (422) if
+    the course costs nothing, ``discount_exceeds_price`` /
+    ``discount_makes_free`` (422) if the discount would zero out the
+    price.
+    """
+    await _require_instructor_role(user)
+    inst = await instructor_service.require_my_instructor(session, user)
+    promo = await promocode_service.create_promocode(
+        session,
+        inst,
+        course_id,
+        code=payload.code,
+        discount_kind=payload.discount_kind,
+        discount_value=payload.discount_value,
+        expires_at=payload.expires_at,
+    )
+    return PromocodeRead.model_validate(promo)
+
+
+@router.delete(
+    "/promocodes/{promocode_id}", status_code=status.HTTP_204_NO_CONTENT
+)
+async def revoke_promocode(
+    promocode_id: uuid.UUID, user: CurrentUser, session: DbSession
+) -> None:
+    """Revoke an instructor-owned promocode.
+
+    If the code has never been used the row is deleted outright. If it
+    has been redeemed (``uses_count > 0``), it is soft-revoked
+    (``is_active=false``) so the order's FK remains valid; the code
+    cannot be redeemed again either way.
+    """
+    await _require_instructor_role(user)
+    inst = await instructor_service.require_my_instructor(session, user)
+    await promocode_service.revoke_promocode(session, inst, promocode_id)
 
 
 # ---------- Assessments ----------

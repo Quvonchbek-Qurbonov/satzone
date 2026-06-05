@@ -7,10 +7,15 @@ meta {
 post {
   url: {{base_url}}/practice/quizzes/{{practice_quiz_id}}/attempts
   body: json
+  auth: bearer
 }
 
 headers {
   Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{access_token}}
 }
 
 body:json {

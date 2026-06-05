@@ -6,4 +6,9 @@ meta {
 
 get {
   url: {{base_url}}/me/certificates/courses/{{course_id}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
 }

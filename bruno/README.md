@@ -67,6 +67,7 @@ These requests have post-response scripts that populate environment variables fo
 | Payments → Save card | `payment_method_id` |
 | Payments → Create order | `order_id` |
 | Payments → Pay order (Payme hosted checkout) | `payme_checkout_url` |
+| Instructor → Create course promocode | `promocode_id`, `promocode` |
 | Practice → Get my practice pack (student) | `practice_pack_id`, `practice_quiz_id` (first quiz) |
 | Practice → Get practice quiz (student) | `practice_item_id` (first item) |
 | Practice → Submit practice attempt | `practice_attempt_id` |
@@ -190,6 +191,63 @@ A typical content-management run:
 4. **Admin → Programs → Create** → captures `admin_program_id`.
 5. **Admin → Programs → Add course** (uses `instructor_course_id` from a published course).
 6. **Admin → Programs → Publish**.
+
+### Promocodes (instructor-issued, single-use)
+
+Each promocode is owned by the course's instructor and is **single-use** —
+once an order has been paid with the code, it can never be redeemed
+again. Reservation is atomic at order-creation time so two simultaneous
+buyers cannot both win the last use. Cancelling a `PENDING` order
+releases the reservation; reversing a paid order does **not** (the code
+was sold and refunded — the code itself stays consumed).
+
+Discount math supports two modes:
+
+| `discount_kind` | `discount_value` | Notes |
+| --------------- | ---------------- | ----- |
+| `percent` | 1–100 | applied as `floor(price × value / 100)` so rounding favours the seller |
+| `fixed` | minor units (tiyin / cents), ≥ 1 | clipped to the course price so it never goes negative |
+
+A code is rejected at creation if it would result in a free order
+(`discount_makes_free` / `discount_exceeds_price`). The course must be
+paid (free courses don't get codes).
+
+Authoring (instructor or admin who owns the course):
+
+1. **Auth → Login** as the instructor.
+2. **Instructor → Create course promocode** (`{ code, discount_kind, discount_value, expires_at? }`) — captures `promocode_id` and `promocode`.
+3. **Instructor → List course promocodes** to audit usage; `uses_count` and `is_active` flag exhausted / revoked codes.
+4. **Instructor → Revoke promocode** — deletes an unused code; soft-deactivates one that has already been redeemed.
+
+Redemption (any verified user):
+
+1. **Auth → Login** as a student.
+2. **Payments → Preview promocode discount** — returns the discounted
+   total without consuming the code, so the checkout screen can show
+   the savings before the buyer confirms.
+3. **Payments → Create order (course + promocode)** — atomically reserves
+   one use. The response's `amount_cents` is already discounted;
+   `original_amount_cents` + `discount_cents` keep the audit trail.
+4. **Payments → Pay order (saved card / Payme hosted checkout)** as
+   normal. CheckPerformTransaction validates the *discounted* amount, so
+   nothing extra is needed in the Payme flow.
+5. **Payments → Cancel order** before payment releases the reservation;
+   the code becomes available again.
+
+Failure modes worth knowing:
+
+| HTTP | code | meaning |
+| ---- | ---- | ------- |
+| 404  | `promocode_not_found` | Code doesn't exist (typo or revoked + deleted) |
+| 409  | `promocode_code_taken` | Instructor tried to create a code that already exists somewhere |
+| 409  | `promocode_exhausted` | Code is already reserved or redeemed |
+| 422  | `promocode_wrong_course` | Code belongs to another course |
+| 422  | `promocode_inactive` | Code has been revoked |
+| 422  | `promocode_expired` | `expires_at` is in the past |
+| 422  | `promocode_makes_free` | Discount would zero out the price |
+| 422  | `promocode_not_applicable` | Code passed on a program order |
+| 422  | `course_is_free` | Tried to issue a code for a free course |
+| 422  | `discount_exceeds_price` / `discount_makes_free` | Bad math at code creation |
 
 ### Instructor / Assessments flow
 

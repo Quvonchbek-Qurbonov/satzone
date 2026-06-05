@@ -30,6 +30,7 @@ from app.models.enums import (
     OrderStatus,
     PaymentProvider,
     PracticeItemType,
+    PromocodeDiscountKind,
     PublishStatus,
     QuestionType,
     SkillLevel,
@@ -42,6 +43,7 @@ from app.models.notification import Notification
 from app.models.payment import Order, PaymentMethod, Transaction
 from app.models.practice import PracticeAttempt, PracticeItem, PracticePack, PracticeQuiz
 from app.models.program import Program, ProgramCourse, ProgramEnrollment
+from app.models.promocode import Promocode
 from app.models.review import Review
 from app.models.user import NotificationPreference, User, UserInterest, UserProfile
 
@@ -84,6 +86,8 @@ __all__ = [
     "Program",
     "ProgramCourse",
     "ProgramEnrollment",
+    "Promocode",
+    "PromocodeDiscountKind",
     "PublishStatus",
     "Question",
     "QuestionOption",

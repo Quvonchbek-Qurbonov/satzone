@@ -6,4 +6,9 @@ meta {
 
 get {
   url: {{base_url}}/instructor/sections/{{section_id}}/lessons
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
 }

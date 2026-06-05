@@ -6,4 +6,9 @@ meta {
 
 post {
   url: {{base_url}}/me/wishlist/{{course_id}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
 }

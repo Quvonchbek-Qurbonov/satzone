@@ -125,6 +125,11 @@ def render_auth(auth) -> tuple[str | None, str]:
         creds = {item["key"]: item.get("value", "") for item in auth.get("basic") or []}
         block = "auth:basic {\n" + f"  username: {creds.get('username','')}\n" + f"  password: {creds.get('password','')}\n" + "}"
         return "basic", block
+    if kind == "bearer":
+        creds = {item["key"]: item.get("value", "") for item in auth.get("bearer") or []}
+        token = creds.get("token", "{{access_token}}")
+        block = "auth:bearer {\n" + f"  token: {token}\n" + "}"
+        return "bearer", block
     return None, ""
 
 
@@ -169,12 +174,16 @@ def render_docs(description: str) -> str:
     return "docs {\n" + indent(description) + "\n}"
 
 
-def render_request(item: dict, seq: int) -> str:
+def render_request(item: dict, seq: int, default_auth: dict | None = None) -> str:
     req = item.get("request", {})
     method = req.get("method", "GET")
     url_value, query_params = parse_url(req.get("url"))
     body_kind, body_block = render_body(req.get("body"))
-    auth_kind, auth_block = render_auth(req.get("auth"))
+    # Per-request auth wins; otherwise inherit the collection-level default.
+    # This mirrors Postman's inheritance — root collection auth applies to
+    # every request unless the request opts out (``noauth``) or overrides.
+    request_auth = req.get("auth") if isinstance(req.get("auth"), dict) else None
+    auth_kind, auth_block = render_auth(request_auth or default_auth)
 
     blocks = [
         f"meta {{\n  name: {item.get('name','Request')}\n  type: http\n  seq: {seq}\n}}",
@@ -206,6 +215,7 @@ def main() -> int:
         print(f"missing {COLLECTION}", file=sys.stderr)
         return 1
     data = json.loads(COLLECTION.read_text(encoding="utf-8"))
+    default_auth = data.get("auth") if isinstance(data.get("auth"), dict) else None
 
     if MANIFEST.exists():
         for line in MANIFEST.read_text(encoding="utf-8").splitlines():
@@ -238,7 +248,10 @@ def main() -> int:
                 slug = f"{slug}-{used[slug]}"
             filename = f"{seq:02d}-{slug}.bru"
             path = folder_dir / filename
-            path.write_text(render_request(item, seq), encoding="utf-8")
+            path.write_text(
+                render_request(item, seq, default_auth=default_auth),
+                encoding="utf-8",
+            )
 
     MANIFEST.write_text("\n".join(sorted(set(generated))) + "\n", encoding="utf-8")
     total = sum(len(f.get("item", [])) for f in data.get("item", []))

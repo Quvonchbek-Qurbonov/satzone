@@ -6,4 +6,9 @@ meta {
 
 delete {
   url: {{base_url}}/me/payment-methods/{{payment_method_id}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
 }

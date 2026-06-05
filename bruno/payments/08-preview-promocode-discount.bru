@@ -1,0 +1,30 @@
+meta {
+  name: Preview promocode discount
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{base_url}}/promocodes/preview
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "code": "{{promocode}}",
+    "course_id": "{{course_id}}"
+  }
+}
+
+docs {
+  Server-validated preview of what the buyer will pay if they apply `code` to `course_id`. Does NOT reserve the code.
+}

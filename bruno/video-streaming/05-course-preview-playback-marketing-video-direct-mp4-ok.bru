@@ -6,6 +6,11 @@ meta {
 
 get {
   url: {{base_url}}/courses/{{course_slug}}/preview-playback
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
 }
 
 script:post-response {
