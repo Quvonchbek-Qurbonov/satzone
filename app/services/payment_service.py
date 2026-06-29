@@ -23,6 +23,7 @@ from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationAppError
@@ -693,12 +694,10 @@ async def _txn_by_provider_id(
         raise _RpcError(ERR_TXN_NOT_FOUND, "Transaction id required")
     stmt = (
         select(Transaction)
+        .options(selectinload(Transaction.order))
         .where(Transaction.provider_txn_id == txn_id)
     )
     txn = (await session.execute(stmt)).scalar_one_or_none()
     if txn is None:
         raise _RpcError(ERR_TXN_NOT_FOUND, "Transaction not found")
-    # Eager-load order for state mutations
-    if txn.order is None:
-        await session.refresh(txn, attribute_names=["order"])
     return txn

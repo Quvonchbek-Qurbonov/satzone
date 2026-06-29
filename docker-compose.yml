@@ -2,11 +2,7 @@ services:
   api:
     build: .
     ports:
-      # Bind to the loopback only — nginx on the host proxies to us via
-      # 127.0.0.1:8000. Without the 127.0.0.1: prefix Docker publishes
-      # on 0.0.0.0 and the api becomes reachable on the public IP at
-      # :8000, bypassing TLS termination.
-      - "127.0.0.1:8000:8000"
+      - "8000:8000"
     env_file:
       - .env
     depends_on:

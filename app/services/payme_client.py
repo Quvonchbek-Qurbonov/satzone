@@ -51,14 +51,42 @@ def _checkout_base() -> str:
     )
 
 
+# Subscribe API methods that require the merchant key in X-Auth.
+# Cards endpoints used during enrollment (cards.create / get_verify_code /
+# verify) are authenticated with the merchant id alone; anything that moves
+# money or touches a verified token must include ``:KEY``.
+_PROTECTED_METHODS = frozenset(
+    {
+        "receipts.create",
+        "receipts.pay",
+        "receipts.send",
+        "receipts.check",
+        "receipts.cancel",
+        "receipts.get",
+        "receipts.get_all",
+        "cards.remove",
+        "cards.check",
+    }
+)
+
+
 async def _rpc(method: str, params: dict[str, Any]) -> dict[str, Any]:
     if not settings.PAYME_MERCHANT_ID:
         raise PaymeError(
             "Payme is not configured (PAYME_MERCHANT_ID missing)",
             code="payment_provider_unconfigured",
         )
+    if method in _PROTECTED_METHODS:
+        if not settings.PAYME_KEY:
+            raise PaymeError(
+                "Payme is not configured (PAYME_KEY missing for protected method)",
+                code="payment_provider_unconfigured",
+            )
+        x_auth = f"{settings.PAYME_MERCHANT_ID}:{settings.PAYME_KEY}"
+    else:
+        x_auth = settings.PAYME_MERCHANT_ID
     payload = {"id": 1, "method": method, "params": params}
-    headers = {"X-Auth": settings.PAYME_MERCHANT_ID, "Content-Type": "application/json"}
+    headers = {"X-Auth": x_auth, "Content-Type": "application/json"}
     async with httpx.AsyncClient(timeout=20.0) as client:
         try:
             resp = await client.post(_api_url(), json=payload, headers=headers)

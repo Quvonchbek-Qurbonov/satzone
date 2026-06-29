@@ -5,8 +5,13 @@ meta {
 }
 
 delete {
-  url: {{base_url}}/admin/users/{{user_id}}
+  url: {{base_url}}/admin/users/:user_id
+  body: none
   auth: bearer
+}
+
+params:path {
+  user_id: 
 }
 
 auth:bearer {
