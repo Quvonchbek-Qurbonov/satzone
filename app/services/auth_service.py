@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -33,6 +34,106 @@ logger = get_logger(__name__)
 
 def _now() -> datetime:
     return datetime.now(tz=UTC)
+
+
+def _render_verification_email(full_name: str, verify_url: str) -> tuple[str, str]:
+    """Return (text, html) bodies for the verify-email message.
+
+    The HTML uses inline styles only — Gmail/Outlook strip <style> blocks and
+    most external CSS, so anything not inlined silently disappears. The button
+    uses a VML <v:roundrect> fallback inside an MSO conditional so it renders
+    with rounded corners and the brand color in classic Outlook, which ignores
+    CSS border-radius and most background colors on <a> tags.
+    """
+    expire_hours = settings.EMAIL_VERIFY_EXPIRE_HOURS
+    project = settings.PROJECT_NAME
+
+    text_body = (
+        f"Hi {full_name},\n\n"
+        f"Welcome to {project}! Please verify your email by visiting:\n{verify_url}\n\n"
+        f"This link expires in {expire_hours} hours. If you didn't create an account, "
+        f"you can safely ignore this email."
+    )
+
+    name_esc = html.escape(full_name)
+    url_esc = html.escape(verify_url, quote=True)
+    project_esc = html.escape(project)
+    initial_esc = html.escape(project[:1].upper() or "S")
+    preheader = f"Confirm your email to activate your {project} account."
+    preheader_esc = html.escape(preheader)
+
+    html_body = f"""\
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="supported-color-schemes" content="light dark" />
+    <title>Verify your {project_esc} account</title>
+    <!--[if mso]>
+    <style type="text/css">
+      body, table, td, a {{ font-family: 'Segoe UI', Arial, sans-serif !important; }}
+    </style>
+    <![endif]-->
+  </head>
+  <body style="margin:0;padding:0;background-color:#eef2ff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f172a;-webkit-font-smoothing:antialiased;">
+    <div style="display:none;font-size:1px;color:#eef2ff;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">
+      {preheader_esc}
+    </div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#eef2ff;">
+      <tr>
+        <td align="center" style="padding:40px 16px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:520px;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,0.08);">
+            <tr>
+              <td style="background-color:#4f46e5;background-image:linear-gradient(135deg,#6366f1 0%,#4f46e5 50%,#7c3aed 100%);padding:36px 32px;text-align:center;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:0 auto 12px auto;">
+                  <tr>
+                    <td align="center" valign="middle" width="56" height="56" style="width:56px;height:56px;background-color:rgba(255,255,255,0.18);border-radius:50%;color:#ffffff;font-size:24px;font-weight:700;line-height:56px;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+                      {initial_esc}
+                    </td>
+                  </tr>
+                </table>
+                <div style="color:#ffffff;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:600;opacity:0.85;">{project_esc}</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:40px 40px 16px 40px;text-align:center;">
+                <h1 style="margin:0 0 12px 0;font-size:24px;line-height:1.3;font-weight:700;color:#0f172a;letter-spacing:-0.01em;">Confirm your email</h1>
+                <p style="margin:0 0 8px 0;font-size:15px;line-height:1.6;color:#475569;">Hi {name_esc},</p>
+                <p style="margin:0 0 32px 0;font-size:15px;line-height:1.6;color:#475569;">Thanks for signing up. Tap the button below to verify your email address and finish setting up your account.</p>
+                <!--[if mso]>
+                <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{url_esc}" style="height:48px;v-text-anchor:middle;width:220px;" arcsize="17%" stroke="f" fillcolor="#4f46e5">
+                  <w:anchorlock/>
+                  <center style="color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;font-size:15px;font-weight:600;">Verify my email</center>
+                </v:roundrect>
+                <![endif]-->
+                <!--[if !mso]><!-- -->
+                <a href="{url_esc}" style="display:inline-block;padding:14px 36px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;background-color:#4f46e5;background-image:linear-gradient(135deg,#6366f1 0%,#4f46e5 100%);border-radius:10px;box-shadow:0 4px 12px rgba(79,70,229,0.35);letter-spacing:0.01em;">Verify my email</a>
+                <!--<![endif]-->
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px 40px 8px 40px;">
+                <div style="border-top:1px solid #e2e8f0;"></div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 40px 32px 40px;">
+                <p style="margin:0 0 8px 0;font-size:13px;line-height:1.5;color:#64748b;">Button not working? Paste this link into your browser:</p>
+                <p style="margin:0 0 20px 0;font-size:13px;line-height:1.5;word-break:break-all;"><a href="{url_esc}" style="color:#4f46e5;text-decoration:none;">{url_esc}</a></p>
+                <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;">This link expires in <strong style="color:#475569;">{expire_hours} hours</strong>. If you didn't create a {project_esc} account, you can safely ignore this email — no further action is needed.</p>
+              </td>
+            </tr>
+          </table>
+          <p style="margin:24px 0 0 0;font-size:12px;line-height:1.5;color:#94a3b8;text-align:center;">&copy; {project_esc}. All rights reserved.</p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>"""
+    return text_body, html_body
 
 
 def _build_token_response(user_id: uuid.UUID, refresh_token: str) -> dict:
@@ -123,15 +224,13 @@ async def register(
         f"{settings.API_BASE_URL.rstrip('/')}{settings.API_V1_PREFIX}"
         f"/auth/verify-email?token={raw_verify}"
     )
+    text_body, html_body = _render_verification_email(full_name_clean, verify_url)
     try:
         await send_email(
             to=email_norm,
             subject=f"Verify your {settings.PROJECT_NAME} account",
-            body_text=(
-                f"Hi {full_name_clean},\n\n"
-                f"Please verify your email by visiting:\n{verify_url}\n\n"
-                f"This link expires in {settings.EMAIL_VERIFY_EXPIRE_HOURS} hours."
-            ),
+            body_text=text_body,
+            body_html=html_body,
         )
     except Exception:  # noqa: BLE001
         logger.exception("verification_email_send_failed", email_hash=email_hash(email_norm))
@@ -515,11 +614,13 @@ async def resend_verification(session: AsyncSession, email: str) -> None:
         f"{settings.API_BASE_URL.rstrip('/')}{settings.API_V1_PREFIX}"
         f"/auth/verify-email?token={raw}"
     )
+    text_body, html_body = _render_verification_email(pending.full_name, verify_url)
     try:
         await send_email(
             to=pending.email,
             subject=f"Verify your {settings.PROJECT_NAME} account",
-            body_text=f"Hi {pending.full_name},\n\nVerify your email: {verify_url}",
+            body_text=text_body,
+            body_html=html_body,
         )
     except Exception:  # noqa: BLE001
         logger.exception("resend_verify_failed", email_hash=email_hash(email_norm))
