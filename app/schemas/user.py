@@ -30,6 +30,11 @@ class UserMe(ORMModel):
     onboarding_completed_at: datetime | None = None
     last_login_at: datetime | None = None
     created_at: datetime
+    # Which sign-in methods are wired up, so Settings can render the right
+    # form: "Set password" when has_password is false (Google-only), else
+    # "Change password". has_google flags whether a Google identity is linked.
+    has_password: bool
+    has_google: bool
 
 
 class UserUpdate(ORMModel):
@@ -43,6 +48,12 @@ class AvatarUploadResponse(ORMModel):
 
 class PasswordChange(ORMModel):
     current_password: str = Field(min_length=8, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+class PasswordSet(ORMModel):
+    """Set an initial password on a Google-only account (no current password)."""
+
     new_password: str = Field(min_length=8, max_length=128)
 
 

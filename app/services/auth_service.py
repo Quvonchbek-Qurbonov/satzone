@@ -586,10 +586,41 @@ async def change_password(
     current_password: str,
     new_password: str,
 ) -> None:
+    if user.password_hash is None:
+        # No password to verify against — this is a Google-only account that
+        # must go through set_password first. Surface a distinct code so the
+        # frontend can route to the "Set password" form instead.
+        raise ConflictError(
+            "No password is set on this account; use set-password instead",
+            code="password_not_set",
+        )
     if not verify_password(current_password, user.password_hash):
         raise UnauthorizedError("Current password is incorrect", code="invalid_credentials")
     if current_password == new_password:
         raise ValidationAppError("New password must differ from the current one", code="password_unchanged")
+    user.password_hash = hash_password(new_password)
+    await session.commit()
+
+
+async def set_password(
+    session: AsyncSession,
+    user: User,
+    new_password: str,
+) -> None:
+    """Set an initial password on an account that has none.
+
+    This is the path a Google-registered user takes from Settings to gain a
+    second, email/password way in — afterwards the account can log in both
+    ways. It deliberately requires *no* current password (there isn't one),
+    but refuses to overwrite an existing password: a user who already has one
+    must prove they know it via :func:`change_password`, so a hijacked access
+    token can't silently rotate the password out from under them.
+    """
+    if user.password_hash is not None:
+        raise ConflictError(
+            "A password is already set; use change-password instead",
+            code="password_already_set",
+        )
     user.password_hash = hash_password(new_password)
     await session.commit()
 

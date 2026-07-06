@@ -2280,6 +2280,24 @@
           }
         },
         {
+          "name": "Set password (Google users)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"new_password\": \"BrandNewPass123!\"\n}"
+            },
+            "url": "{{base_url}}/me/password/set",
+            "description": "Set an initial password on an account that has none (a Google-only signup). Afterwards the account can log in with either Google or email/password. No current password required. Returns 409 password_already_set if a password already exists — that case must use PUT /me/password. Check `has_password` on GET /me to decide which form to show."
+          }
+        },
+        {
           "name": "Delete me (soft)",
           "request": {
             "method": "DELETE",
@@ -2807,6 +2825,65 @@
             },
             "url": "{{base_url}}/payments/payme/callback",
             "description": "Simulates a call FROM Payme to our backend. Set payme_key in the environment to PAYME_KEY from .env."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Discounts",
+      "item": [
+        {
+          "name": "Save promocode to wallet",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j && j.id) pm.environment.set('saved_promocode_id', j.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{promocode}}\"\n}"
+            },
+            "url": "{{base_url}}/me/promocodes",
+            "description": "Stash a valid promocode into the profile \"Discounts\" wallet. Saving is a bookmark, not a reservation — the single-use reservation still happens at checkout. Rejects unknown/revoked/expired/used codes (404 promocode_not_found / 422 promocode_inactive / 422 promocode_expired / 409 promocode_exhausted) and duplicates (409 promocode_already_saved). Captures saved_promocode_id."
+          }
+        },
+        {
+          "name": "List saved promocodes (wallet)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/me/promocodes",
+            "description": "The full profile wallet, newest first. Each entry carries a live `status` (usable / expired / used / revoked) and `is_valid`, recomputed against the underlying code so a code that died after being saved shows greyed-out."
+          }
+        },
+        {
+          "name": "List applicable promocodes for course",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/me/promocodes?course_id={{course_id}}",
+            "description": "The saved codes that apply to `course_id` — what the buy screen shows. Each item is enriched with the price math (original_amount_cents / discount_cents / final_amount_cents / currency); discount fields are populated only for usable codes."
+          }
+        },
+        {
+          "name": "Delete saved promocode",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/me/promocodes/{{saved_promocode_id}}",
+            "description": "Remove one entry from the wallet by its wallet-entry id (the `id` field returned when saving, not the promocode id). Returns 204; a missing or foreign entry returns 404."
           }
         }
       ]

@@ -1,11 +1,11 @@
 meta {
-  name: Delete me (soft)
+  name: Revoke a session
   type: http
-  seq: 6
+  seq: 11
 }
 
 delete {
-  url: {{base_url}}/me
+  url: {{base_url}}/me/sessions/{{session_id}}
   auth: bearer
 }
 

@@ -43,7 +43,7 @@ from app.models.notification import Notification
 from app.models.payment import Order, PaymentMethod, Transaction
 from app.models.practice import PracticeAttempt, PracticeItem, PracticePack, PracticeQuiz
 from app.models.program import Program, ProgramCourse, ProgramEnrollment
-from app.models.promocode import Promocode
+from app.models.promocode import Promocode, SavedPromocode
 from app.models.review import Review
 from app.models.user import NotificationPreference, User, UserInterest, UserProfile
 
@@ -94,6 +94,7 @@ __all__ = [
     "QuestionType",
     "RefreshToken",
     "Review",
+    "SavedPromocode",
     "SkillLevel",
     "SubmissionAnswer",
     "Transaction",

@@ -60,6 +60,20 @@ class User(UUIDPKMixin, TimestampMixin, Base):
         back_populates="user", cascade="all, delete-orphan"
     )
 
+    @property
+    def has_password(self) -> bool:
+        """True once an email/password credential exists on the account.
+
+        Google-only users start with ``password_hash is None``; the Settings
+        screen reads this to show "Set password" instead of "Change password".
+        """
+        return self.password_hash is not None
+
+    @property
+    def has_google(self) -> bool:
+        """True when a Google identity is linked to this account."""
+        return self.google_sub is not None
+
 
 class UserProfile(TimestampMixin, Base):
     __tablename__ = "user_profiles"

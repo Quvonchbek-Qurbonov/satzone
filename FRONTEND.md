@@ -149,7 +149,20 @@ The **redirect** flow lives entirely on the backend:
 
 If `code=oauth_only` comes back from `/auth/login`, route the user to the
 "Sign in with Google" button instead of the password form — that account has
-no password set.
+no password set (yet).
+
+**Google and password can coexist on one account.** They're independent
+credentials, so an account can log in either way:
+
+- A user who signed up with Google can **add a password** from Settings via
+  `POST /me/password/set` (see §4.2). After that, both `/auth/login` and the
+  Google button work for them.
+- A user who signed up with email/password gets Google **linked
+  automatically** the first time they sign in with Google using the same
+  verified email — no extra call.
+
+`GET /me` returns `has_password` and `has_google` so you can render the
+account's linked methods and choose the right password form.
 
 ---
 
@@ -305,6 +318,8 @@ All enums are lowercase strings:
 | `OrderItemKind` | `course`, `program` |
 | `PaymentProvider` | `payme`, `card` |
 | `CardBrand` | `uzcard`, `humo`, `visa`, `mastercard`, `unknown` |
+| `PromocodeDiscountKind` | `percent` (value 1–100), `fixed` (value in minor units) |
+| Saved-code `status` | `usable`, `expired`, `used`, `revoked` (see §4.13 wallet) |
 
 ---
 
@@ -350,10 +365,22 @@ access token is needed.
 
 | Method & path | Body | Returns | Notes |
 | --- | --- | --- | --- |
-| `GET /me` | – | `UserMe` | |
+| `GET /me` | – | `UserMe` | Includes `has_password` / `has_google` (which sign-in methods are wired up) |
 | `PATCH /me` | `{full_name?, avatar_url?}` | `UserMe` | Partial update |
 | `DELETE /me` | – | 204 | Soft-deactivates + scrubs PII; revokes refresh tokens |
-| `PUT /me/password` | `{current_password, new_password}` | `{message}` | 401 `invalid_credentials` if wrong |
+| `PUT /me/password` | `{current_password, new_password}` | `{message}` | Change an existing password. 401 `invalid_credentials` if wrong; 409 `password_not_set` if the account has no password (use set instead) |
+| `POST /me/password/set` | `{new_password}` | `{message}` (201) | Set an **initial** password on a Google-only account — no current password. 409 `password_already_set` if one already exists |
+
+**Password form branching.** Read `has_password` from `GET /me`:
+
+- `has_password: false` (Google-only signup) → show a **"Set password"** form
+  (new password only) → `POST /me/password/set`. On success the account can
+  now also log in with email/password; refetch `GET /me` (it flips to
+  `has_password: true`).
+- `has_password: true` → show the normal **"Change password"** form
+  (current + new) → `PUT /me/password`.
+
+Both `min_length: 8`, `max_length: 128` on the password fields.
 | `GET /me/preferences/notifications` | – | `NotificationPreferenceSchema` | Auto-creates default row |
 | `PATCH /me/preferences/notifications` | partial | `NotificationPreferenceSchema` | |
 | `GET /me/sessions` | – | `[{id, user_agent, ip_address, created_at, expires_at}]` | Active refresh tokens |
@@ -735,7 +762,7 @@ don't have it.
 
 | Method & path | Body | Returns | Notes |
 | --- | --- | --- | --- |
-| `POST /orders` | `{item_kind, course_id?, program_id?}` | `OrderRead` (201) | Pick exactly one of `course_id` / `program_id` based on `item_kind` |
+| `POST /orders` | `{item_kind, course_id?, program_id?, promocode?}` | `OrderRead` (201) | Pick exactly one of `course_id` / `program_id` based on `item_kind`. `promocode` is course-only |
 | `GET /orders/{order_id}` | – | `OrderRead` | |
 | `DELETE /orders/{order_id}` | – | `OrderRead` | Cancels (status → `cancelled`); idempotent on already-cancelled |
 | `POST /orders/{order_id}/pay/card` | `{payment_method_id}` | `PayResponse` | Synchronous charge against a verified saved card |
@@ -752,9 +779,73 @@ don't have it.
 }
 ```
 
+`OrderRead` also carries the promocode math when one was applied:
+`amount_cents` is the **discounted** total actually charged, while
+`original_amount_cents` + `discount_cents` (and `promocode_id`) record what
+was knocked off. When no code was used, `original_amount_cents` is `null` and
+`discount_cents` is `0`.
+
+#### Promocodes & the discount wallet
+
+Instructors issue **single-use** discount codes for their courses (programs
+don't take codes). A buyer can apply a code two ways — typed straight in at
+checkout, or picked from a saved **wallet** on their profile.
+
+| Method & path | Body / query | Returns | Notes |
+| --- | --- | --- | --- |
+| `POST /promocodes/preview` | `{code, course_id}` | `PromocodePreviewResponse` | Prices a code **without** reserving it — render the savings before "Buy" |
+| `GET /me/promocodes` | – | `SavedPromocodeRead[]` | The full wallet (profile "Discounts" screen) |
+| `GET /me/promocodes?course_id={id}` | – | `SavedPromocodeApplicable[]` | Only codes for that course, each with the price math — the buy screen |
+| `POST /me/promocodes` | `{code}` | `SavedPromocodeRead` (201) | Save a code to the wallet (a bookmark, not a reservation) |
+| `DELETE /me/promocodes/{id}` | – | 204 | Remove by **wallet-entry** id (`SavedPromocodeRead.id`, not the promocode id) |
+
+`SavedPromocodeRead`:
+```ts
+{
+  id: string,                 // wallet-entry id — use for DELETE
+  promocode_id: string,
+  code: string,
+  course_id: string,
+  course_title: string | null,
+  course_slug: string | null,
+  discount_kind: "percent" | "fixed",
+  discount_value: number,     // percent 1..100, or minor units for "fixed"
+  expires_at: string | null,
+  status: "usable" | "expired" | "used" | "revoked",  // recomputed live
+  is_valid: boolean,          // === (status === "usable")
+  saved_at: string
+}
+```
+
+`SavedPromocodeApplicable` is the same object **plus** the price math for the
+course you filtered by: `original_amount_cents`, `discount_cents`,
+`final_amount_cents`, `currency`. The discount fields are `null` for codes
+that aren't `is_valid` (grey them out / hide the "apply" chip).
+
+Notes for the UI:
+
+- **Saving ≠ reserving.** A code stays single-use; the wallet is only a
+  convenience list. The actual one-use reservation happens when you call
+  `POST /orders` with `promocode` (or the code the user picked). Two users
+  can both have the same code saved; whoever checks out first wins it.
+- **Status is live.** A saved code can expire / be revoked / be used up after
+  it was saved, so re-read the wallet when showing it and trust `status` /
+  `is_valid` rather than caching.
+- **Applying at checkout** is unchanged whether the code came from the wallet
+  or was typed in: pass it as `promocode` on `POST /orders`. Common errors:
+  `404 promocode_not_found`, `422 promocode_wrong_course`,
+  `422 promocode_expired`, `422 promocode_inactive`,
+  `409 promocode_exhausted`, `422 promocode_makes_free`. Saving adds one
+  more: `409 promocode_already_saved`.
+
 ##### Suggested flow
 
-1. User clicks "Buy" on a course → `POST /orders` with the course id → store `order_id`.
+0. On the buy screen, optionally show applicable saved codes with
+   `GET /me/promocodes?course_id={id}` and/or let the user type one and price
+   it with `POST /promocodes/preview`.
+1. User clicks "Buy" on a course → `POST /orders` with the course id (and
+   `promocode` if one was chosen/typed) → store `order_id`. The returned
+   `amount_cents` is already discounted.
 2. Show the user the saved cards (`GET /me/payment-methods`). Two options:
    - **Pay with saved card** → `POST /orders/{order_id}/pay/card` → on `status: "paid"`, show success and route to the course.
    - **Pay with Payme** → `POST /orders/{order_id}/pay/payme` with `return_url` set to your "thank you" page → redirect to `checkout_url`.

@@ -72,11 +72,12 @@ uvicorn app.main:app --reload
 | Course detail      | `GET /courses/{slug}`, `/curriculum`, `/related`, `/reviews` (list/create/update/delete)        |
 | My Learnings       | `POST /me/enrollments`, `GET /me/enrollments`, `PUT .../lessons/{lesson_id}/progress`, `GET /me/certificates`, `/me/wishlist` |
 | Degree (Programs)  | `GET /programs`, `GET /programs/{slug}`, `POST /programs/{id}/enroll`, `GET /me/programs`       |
-| Account & Settings | `GET/PATCH/DELETE /me`, `POST/DELETE /me/avatar` (multipart image upload), `PUT /me/password`, `GET/PATCH /me/preferences/notifications`, `GET/DELETE /me/sessions`, `GET /me/activity/weekly`, `PUT /me/activity/weekly-goal` |
+| Account & Settings | `GET/PATCH/DELETE /me`, `POST/DELETE /me/avatar` (multipart image upload), `PUT /me/password` (change), `POST /me/password/set` (set initial password on a Google-only account), `GET/PATCH /me/preferences/notifications`, `GET/DELETE /me/sessions`, `GET /me/activity/weekly`, `PUT /me/activity/weekly-goal` |
 | Notes              | `POST /me/notes`, `GET /me/notes` (filter `lesson_id`/`course_id`), `PATCH/DELETE /me/notes/{id}` |
 | Section quizzes    | `GET /sections/{id}/quiz` (fetch end-of-section quiz), `GET /sections/{id}/quiz/status` (passed / attempts / score), `POST /assessments/{id}/submissions` (existing submit endpoint), instructor authoring via `POST /instructor/courses/{course_id}/assessments` (with `is_section_quiz=true`), `POST /instructor/questions/{id}/image`, `POST /instructor/options/{id}/image` |
 | Downloads          | `GET /lessons/{id}/attachments`, `POST/GET /me/downloads`, `DELETE /me/downloads/{id}` (resource files only — videos stay HLS-streamed) |
 | Payments           | `GET/POST /me/payment-methods`, `POST /me/payment-methods/{id}/verify/start`, `POST /me/payment-methods/{id}/verify/confirm`, `DELETE /me/payment-methods/{id}`, `POST /orders`, `GET /orders/{id}`, `DELETE /orders/{id}`, `POST /orders/{id}/pay/card`, `POST /orders/{id}/pay/payme`, `GET /me/orders`, `POST /payments/payme/callback` (Payme JSON-RPC) |
+| Discounts          | `POST /promocodes/preview` (price a code without reserving it), `GET /me/promocodes` (profile wallet; `?course_id=` filters to a course and adds the price math for the buy screen), `POST /me/promocodes` (save a code), `DELETE /me/promocodes/{id}` (remove). A code can still be entered directly at checkout via the `promocode` field on `POST /orders`. |
 | Admin              | `/admin/users`, `/admin/categories`, `/admin/instructors`, `/admin/courses`, `/admin/programs` (+ `/programs/{id}/courses` linking), `/admin/reviews`, `/admin/enrollments`, `/admin/certificates` — full CRUD + lifecycle (`publish`/`unpublish`/`archive`) + media uploads. All routes gated by `role=admin`. |
 
 ## Section quizzes
@@ -158,6 +159,32 @@ purchased course / program. Programs additionally enroll the user in every
 required course, exactly as `POST /programs/{id}/enroll` does for the free
 path.
 
+## Discount wallet (promocodes)
+
+Promo codes are single-use discount codes an instructor issues for one of
+their courses. A buyer can use one in two places:
+
+1. **Directly at checkout** — pass `promocode` to `POST /orders` (or price
+   it first with `POST /promocodes/preview`). This reserves the code
+   atomically; the reservation is held by the pending order and released
+   if the order is cancelled before payment.
+2. **From the profile "Discounts" wallet** — `POST /me/promocodes` saves a
+   code to the user's wallet. Saving is a **bookmark, not a reservation**:
+   the same code can sit in several users' wallets, but only whoever
+   reaches checkout first actually redeems it.
+
+The buy screen calls `GET /me/promocodes?course_id=<id>` to show the saved
+codes that apply to the course being purchased, each already carrying the
+`original_amount_cents` / `discount_cents` / `final_amount_cents` math so
+the UI can render "apply" chips without a round-trip per code. The plain
+`GET /me/promocodes` returns the whole wallet for the profile screen.
+
+Because a code can expire, be revoked, or be used up **after** it was
+saved, wallet entries cache no validity — every read recomputes a live
+`status` (`usable` / `expired` / `used` / `revoked`) against the
+underlying code, and `is_valid` is the `usable` shortcut. `DELETE
+/me/promocodes/{id}` removes an entry by its wallet-entry id.
+
 ## Observability
 
 `docker compose up -d` brings up four extra services for metrics, logs, and dashboards:
@@ -182,6 +209,27 @@ Logs ship as JSON because `LOG_JSON=true`; Promtail promotes `level`, `event`, `
   - Rotated on every `/auth/refresh` call.
   - Reuse detection: if a revoked token is presented, **all** of that user's refresh tokens are revoked.
   - Revoked on logout, password change, password reset.
+
+### Sign-in methods (Google + password can coexist)
+
+An account can carry **both** an email/password credential and a linked
+Google identity — they're independent columns on `users` (`password_hash`,
+`google_sub`), so either one logs the same account in.
+
+- **Password signup → add Google.** Signing in with Google while an account
+  with the same verified email exists links `google_sub` onto that row
+  automatically (in `google_oauth_service.find_or_create_user`).
+- **Google signup → add password.** A Google-only account has
+  `password_hash = NULL`. From Settings the user calls
+  `POST /me/password/set` (no current password required) to gain
+  email/password sign-in; afterwards both methods work. `PUT /me/password`
+  still governs *changing* an existing password and requires the current
+  one, so a stolen access token can't rotate a password it doesn't know.
+
+`GET /me` exposes `has_password` and `has_google` so the Settings screen can
+show "Set password" vs. "Change password" and reflect the linked methods.
+Until a Google-only user sets a password, `POST /auth/login` returns
+`401 oauth_only` to route them to the Google button.
 
 ## Migrations
 

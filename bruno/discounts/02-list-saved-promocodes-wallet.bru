@@ -1,0 +1,18 @@
+meta {
+  name: List saved promocodes (wallet)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/me/promocodes
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+docs {
+  The full profile wallet, newest first. Each entry carries a live `status` (usable / expired / used / revoked) and `is_valid`, recomputed against the underlying code so a code that died after being saved shows greyed-out.
+}

@@ -1,0 +1,34 @@
+meta {
+  name: Save promocode to wallet
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/me/promocodes
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "code": "{{promocode}}"
+  }
+}
+
+script:post-response {
+  const j = res.getBody();
+  if (j && j.id) bru.setEnvVar('saved_promocode_id', j.id);
+}
+
+docs {
+  Stash a valid promocode into the profile "Discounts" wallet. Saving is a bookmark, not a reservation — the single-use reservation still happens at checkout. Rejects unknown/revoked/expired/used codes (404 promocode_not_found / 422 promocode_inactive / 422 promocode_expired / 409 promocode_exhausted) and duplicates (409 promocode_already_saved). Captures saved_promocode_id.
+}

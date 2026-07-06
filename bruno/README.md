@@ -68,6 +68,7 @@ These requests have post-response scripts that populate environment variables fo
 | Payments → Create order | `order_id` |
 | Payments → Pay order (Payme hosted checkout) | `payme_checkout_url` |
 | Instructor → Create course promocode | `promocode_id`, `promocode` |
+| Discounts → Save promocode to wallet | `saved_promocode_id` |
 | Practice → Get my practice pack (student) | `practice_pack_id`, `practice_quiz_id` (first quiz) |
 | Practice → Get practice quiz (student) | `practice_item_id` (first item) |
 | Practice → Submit practice attempt | `practice_attempt_id` |
@@ -88,6 +89,25 @@ A clean run order to exercise everything end-to-end:
 9. **Degree → List programs** (sets `program_id`)
 10. **Degree → Enroll in program**
 11. **Account & Settings → …**
+
+### Dual sign-in (Google + password)
+
+An account can hold both an email/password credential and a linked Google
+identity. `GET /me` returns `has_password` / `has_google` so the client
+knows which are wired up.
+
+- A user who **signed up with Google** (`has_password: false`) adds
+  email/password sign-in via **Account & Settings → Set password (Google
+  users)** — `POST /me/password/set { new_password }`, no current password.
+  Re-running it after a password exists returns `409 password_already_set`.
+- A user who **has a password** changes it via **Account & Settings → Change
+  password** (`PUT /me/password`, requires `current_password`).
+- Linking the other direction (password account → Google) happens
+  automatically: signing in through **Google OAuth** with a matching verified
+  email stamps `google_sub` onto the existing row.
+
+Until a Google-only user sets a password, **Auth → Login** returns
+`401 oauth_only`.
 
 ### Video streaming flow
 
@@ -234,6 +254,32 @@ Redemption (any verified user):
 5. **Payments → Cancel order** before payment releases the reservation;
    the code becomes available again.
 
+The **Discounts** folder adds a per-user *wallet* on top of this. A buyer
+can stash codes in their profile and have them resurface on the buy screen
+instead of retyping them:
+
+1. **Discounts → Save promocode to wallet** (`{ code }`) bookmarks a valid
+   code — captures `saved_promocode_id`. Saving is **not** a reservation
+   (the same code can sit in many wallets; whoever checks out first wins
+   the single use), so it's rejected only if the code is already dead
+   (`promocode_not_found` / `promocode_inactive` / `promocode_expired` /
+   `promocode_exhausted`) or already in your wallet
+   (`promocode_already_saved`).
+2. **Discounts → List saved promocodes (wallet)** renders the profile
+   screen. Each entry carries a live `status` (`usable` / `expired` /
+   `used` / `revoked`) recomputed against the code, so one that died after
+   being saved shows greyed-out.
+3. **Discounts → List applicable promocodes for course**
+   (`?course_id=…`) is the buy-screen view: only the codes for that
+   course, each already carrying `original_amount_cents` /
+   `discount_cents` / `final_amount_cents` / `currency`.
+4. **Discounts → Delete saved promocode** removes an entry by its
+   `saved_promocode_id` (the wallet-entry id, not the promocode id).
+
+The wallet is purely a convenience layer — redemption still flows through
+**Payments → Create order** with the `promocode` field, whether the code
+came from the wallet or was typed straight in.
+
 Failure modes worth knowing:
 
 | HTTP | code | meaning |
@@ -241,6 +287,7 @@ Failure modes worth knowing:
 | 404  | `promocode_not_found` | Code doesn't exist (typo or revoked + deleted) |
 | 409  | `promocode_code_taken` | Instructor tried to create a code that already exists somewhere |
 | 409  | `promocode_exhausted` | Code is already reserved or redeemed |
+| 409  | `promocode_already_saved` | Code is already in the user's discount wallet |
 | 422  | `promocode_wrong_course` | Code belongs to another course |
 | 422  | `promocode_inactive` | Code has been revoked |
 | 422  | `promocode_expired` | `expires_at` is in the past |

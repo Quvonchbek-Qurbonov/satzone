@@ -1,0 +1,18 @@
+meta {
+  name: Delete saved promocode
+  type: http
+  seq: 4
+}
+
+delete {
+  url: {{base_url}}/me/promocodes/{{saved_promocode_id}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+docs {
+  Remove one entry from the wallet by its wallet-entry id (the `id` field returned when saving, not the promocode id). Returns 204; a missing or foreign entry returns 404.
+}

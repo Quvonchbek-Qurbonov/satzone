@@ -649,6 +649,53 @@
         ]
       }
     },
+    "/api/v1/me/password/set": {
+      "post": {
+        "tags": [
+          "account"
+        ],
+        "summary": "Set Password",
+        "description": "Set an initial password on an account that has none (e.g. Google-only).\n\nLets a user who signed up with Google add email/password sign-in from\nSettings so they can then log in either way. Returns\n``409 password_already_set`` if the account already has a password \u2014 that\ncase must go through ``PUT /me/password`` with the current password.",
+        "operationId": "set_password_api_v1_me_password_set_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordSet"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me/avatar": {
       "post": {
         "tags": [
@@ -7141,6 +7188,151 @@
             "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/api/v1/me/promocodes": {
+      "get": {
+        "tags": [
+          "promocodes"
+        ],
+        "summary": "List Wallet",
+        "description": "List the user's saved promocodes.\n\nWithout ``course_id`` this is the full wallet (profile screen). With\n``course_id`` it returns only the codes that apply to that course,\neach enriched with the price math (buy screen) \u2014 the response items\nare then :class:`SavedPromocodeApplicable`.",
+        "operationId": "list_wallet_api_v1_me_promocodes_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "course_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Course Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SavedPromocodeRead"
+                  },
+                  "title": "Response List Wallet Api V1 Me Promocodes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "promocodes"
+        ],
+        "summary": "Save To Wallet",
+        "operationId": "save_to_wallet_api_v1_me_promocodes_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavePromocodeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedPromocodeRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/promocodes/{saved_id}": {
+      "delete": {
+        "tags": [
+          "promocodes"
+        ],
+        "summary": "Delete From Wallet",
+        "operationId": "delete_from_wallet_api_v1_me_promocodes__saved_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saved_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Saved Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/admin/users": {
@@ -16670,6 +16862,22 @@
         ],
         "title": "PasswordResetRequest"
       },
+      "PasswordSet": {
+        "properties": {
+          "new_password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "New Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "new_password"
+        ],
+        "title": "PasswordSet",
+        "description": "Set an initial password on a Google-only account (no current password)."
+      },
       "PayResponse": {
         "properties": {
           "order_id": {
@@ -18952,6 +19160,119 @@
         "type": "object",
         "title": "ReviewUpdate"
       },
+      "SavePromocodeRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "SavePromocodeRequest",
+        "description": "Stash a promocode in the user's profile wallet by its code.\n\nOnly the code is needed \u2014 the server resolves the course/instructor/\ndiscount from it. Saving does not reserve the code; that still happens\nat checkout."
+      },
+      "SavedPromocodeRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "promocode_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Promocode Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "course_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Course Id"
+          },
+          "course_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Title"
+          },
+          "course_slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Slug"
+          },
+          "discount_kind": {
+            "$ref": "#/components/schemas/PromocodeDiscountKind"
+          },
+          "discount_value": {
+            "type": "integer",
+            "title": "Discount Value"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "usable",
+              "expired",
+              "used",
+              "revoked"
+            ],
+            "title": "Status"
+          },
+          "is_valid": {
+            "type": "boolean",
+            "title": "Is Valid"
+          },
+          "saved_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Saved At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "promocode_id",
+          "code",
+          "course_id",
+          "discount_kind",
+          "discount_value",
+          "status",
+          "is_valid",
+          "saved_at"
+        ],
+        "title": "SavedPromocodeRead",
+        "description": "One entry in the user's discount wallet.\n\n``status`` is derived live from the underlying code so the UI can grey\nout a code that expired / was revoked / got used up after it was saved.\n``is_valid`` is the convenience boolean (``status == \"usable\"``)."
+      },
       "SectionAdminRead": {
         "properties": {
           "id": {
@@ -19404,6 +19725,14 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "has_password": {
+            "type": "boolean",
+            "title": "Has Password"
+          },
+          "has_google": {
+            "type": "boolean",
+            "title": "Has Google"
           }
         },
         "type": "object",
@@ -19415,7 +19744,9 @@
           "is_active",
           "is_verified",
           "is_phone_verified",
-          "created_at"
+          "created_at",
+          "has_password",
+          "has_google"
         ],
         "title": "UserMe"
       },

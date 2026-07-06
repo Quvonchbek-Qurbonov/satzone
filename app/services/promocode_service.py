@@ -31,7 +31,8 @@ from app.core.exceptions import (
 from app.models.catalog import Instructor
 from app.models.course import Course
 from app.models.enums import PromocodeDiscountKind
-from app.models.promocode import Promocode
+from app.models.promocode import Promocode, SavedPromocode
+from app.models.user import User
 
 
 def _now() -> datetime:
@@ -261,3 +262,102 @@ async def release(session: AsyncSession, promocode_id: uuid.UUID) -> None:
         .where(and_(Promocode.id == promocode_id, Promocode.uses_count > 0))
         .values(uses_count=Promocode.uses_count - 1, updated_at=_now())
     )
+
+
+# ---------- User discount wallet ----------
+
+
+def saved_status(promo: Promocode, *, now: datetime | None = None) -> str:
+    """Live status of a saved code: usable / expired / used / revoked.
+
+    Precedence is revoked → expired → used → usable: a revoked code reads
+    as revoked even if it also happens to be expired, because that's the
+    reason the buyer can no longer redeem it.
+    """
+    now = now or _now()
+    if not promo.is_active:
+        return "revoked"
+    if promo.expires_at is not None and promo.expires_at <= now:
+        return "expired"
+    if promo.uses_count >= promo.max_uses:
+        return "used"
+    return "usable"
+
+
+async def save_promocode(
+    session: AsyncSession, user: User, *, code: str
+) -> tuple[SavedPromocode, Promocode]:
+    """Bookmark a valid promocode into ``user``'s discount wallet.
+
+    Validates the code the same way checkout does (minus the course match):
+    it must exist, be active, unexpired, and have a remaining use. Saving a
+    dead code would only mislead the buyer, so we reject it up front with a
+    precise error code. Returns the wallet entry plus the resolved code.
+    """
+    normalized = _normalize_code(code)
+    promo = (
+        await session.execute(
+            select(Promocode).where(Promocode.code == normalized)
+        )
+    ).scalar_one_or_none()
+    if promo is None:
+        raise NotFoundError("Promocode not found", code="promocode_not_found")
+    if not promo.is_active:
+        raise ValidationAppError(
+            "Promocode has been revoked", code="promocode_inactive"
+        )
+    if promo.expires_at is not None and promo.expires_at <= _now():
+        raise ValidationAppError(
+            "Promocode has expired", code="promocode_expired"
+        )
+    if promo.uses_count >= promo.max_uses:
+        raise ConflictError(
+            "Promocode has already been used", code="promocode_exhausted"
+        )
+
+    saved = SavedPromocode(user_id=user.id, promocode_id=promo.id)
+    session.add(saved)
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise ConflictError(
+            "Promocode is already in your wallet",
+            code="promocode_already_saved",
+        ) from exc
+    await session.refresh(saved)
+    return saved, promo
+
+
+async def list_saved_promocodes(
+    session: AsyncSession, user: User, *, course_id: uuid.UUID | None = None
+) -> list[tuple[SavedPromocode, Promocode, Course]]:
+    """Return the user's wallet, newest first.
+
+    When ``course_id`` is given the wallet is filtered to codes for that
+    course — the "which of my saved discounts apply to what I'm buying"
+    view the checkout screen renders.
+    """
+    stmt = (
+        select(SavedPromocode, Promocode, Course)
+        .join(Promocode, SavedPromocode.promocode_id == Promocode.id)
+        .join(Course, Promocode.course_id == Course.id)
+        .where(SavedPromocode.user_id == user.id)
+        .order_by(SavedPromocode.created_at.desc())
+    )
+    if course_id is not None:
+        stmt = stmt.where(Promocode.course_id == course_id)
+    rows = (await session.execute(stmt)).all()
+    return [(sp, promo, course) for sp, promo, course in rows]
+
+
+async def delete_saved_promocode(
+    session: AsyncSession, user: User, saved_id: uuid.UUID
+) -> None:
+    """Remove one entry from the user's wallet. Idempotent-ish: a missing
+    or foreign entry raises 404 rather than silently no-op'ing."""
+    saved = await session.get(SavedPromocode, saved_id)
+    if saved is None or saved.user_id != user.id:
+        raise NotFoundError("Saved promocode not found")
+    await session.delete(saved)
+    await session.commit()

@@ -18,6 +18,7 @@ from app.schemas.user import (
     NotificationPreferenceSchema,
     NotificationPreferenceUpdate,
     PasswordChange,
+    PasswordSet,
     UserMe,
     UserUpdate,
 )
@@ -53,6 +54,25 @@ async def change_password(
         new_password=payload.new_password,
     )
     return Message(message="Password changed")
+
+
+@router.post("/password/set", response_model=Message, status_code=status.HTTP_201_CREATED)
+async def set_password(
+    payload: PasswordSet, user: CurrentUser, session: DbSession
+) -> Message:
+    """Set an initial password on an account that has none (e.g. Google-only).
+
+    Lets a user who signed up with Google add email/password sign-in from
+    Settings so they can then log in either way. Returns
+    ``409 password_already_set`` if the account already has a password — that
+    case must go through ``PUT /me/password`` with the current password.
+    """
+    await auth_service.set_password(
+        session=session,
+        user=user,
+        new_password=payload.new_password,
+    )
+    return Message(message="Password set")
 
 
 @router.post("/avatar", response_model=AvatarUploadResponse)

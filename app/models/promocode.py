@@ -90,3 +90,36 @@ class Promocode(UUIDPKMixin, TimestampMixin, Base):
 
     course: Mapped["Course"] = relationship()
     instructor: Mapped["Instructor"] = relationship()
+
+
+class SavedPromocode(UUIDPKMixin, TimestampMixin, Base):
+    """A promocode a user has stashed in their profile "discounts" wallet.
+
+    Saving is a *bookmark*, not a reservation: it records that the user
+    wants this code handy at checkout. The single-use reservation still
+    happens only at order creation (``promocode_service.try_reserve``), so
+    saving the same code to several wallets is fine — at most one buyer
+    ultimately redeems it. Because a code can expire, be revoked, or be
+    used up after it was saved, the row carries no cached validity; callers
+    recompute status against the live ``Promocode`` at read time.
+
+    ``ondelete=CASCADE`` on both FKs means the wallet self-cleans when
+    either the user or the underlying code is deleted.
+    """
+
+    __tablename__ = "saved_promocodes"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "promocode_id", name="uq_saved_promocodes_user_code"
+        ),
+        Index("ix_saved_promocodes_user_id", "user_id"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    promocode_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("promocodes.id", ondelete="CASCADE"), nullable=False
+    )
+
+    promocode: Mapped["Promocode"] = relationship()

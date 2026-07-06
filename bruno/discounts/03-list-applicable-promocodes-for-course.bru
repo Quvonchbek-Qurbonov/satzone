@@ -1,0 +1,22 @@
+meta {
+  name: List applicable promocodes for course
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base_url}}/me/promocodes
+  auth: bearer
+}
+
+query {
+  course_id: {{course_id}}
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+docs {
+  The saved codes that apply to `course_id` — what the buy screen shows. Each item is enriched with the price math (original_amount_cents / discount_cents / final_amount_cents / currency); discount fields are populated only for usable codes.
+}

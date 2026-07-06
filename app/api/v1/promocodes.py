@@ -1,21 +1,37 @@
-"""User-facing promocode preview.
+"""User-facing promocode surfaces.
 
-Returns the discounted total a buyer would pay for ``course_id`` using
-``code``, without reserving the code. The actual reservation happens at
-order creation (``POST /orders`` with ``promocode``).
+Two groups:
+
+- ``/promocodes/preview`` — discounted total a buyer would pay for
+  ``course_id`` using ``code``, without reserving it. The reservation
+  happens at order creation (``POST /orders`` with ``promocode``).
+- ``/me/promocodes`` — the profile "Discounts" wallet: save a code, list
+  the wallet (optionally filtered to a course, with the price math), and
+  drop a code. Saving is a bookmark, not a reservation.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, status
+import uuid
+from typing import Annotated
+
+from fastapi import APIRouter, Query, status
 
 from app.api.deps import CurrentUser
 from app.db.deps import DbSession
 from app.core.exceptions import ValidationAppError
-from app.schemas.promocode import PromocodePreviewRequest, PromocodePreviewResponse
+from app.models.course import Course
+from app.schemas.promocode import (
+    PromocodePreviewRequest,
+    PromocodePreviewResponse,
+    SavedPromocodeApplicable,
+    SavedPromocodeRead,
+    SavePromocodeRequest,
+)
 from app.services import promocode_service
 from app.services.payment_service import get_published_course
 
 router = APIRouter(prefix="/promocodes", tags=["promocodes"])
+me_router = APIRouter(prefix="/me/promocodes", tags=["promocodes"])
 
 
 @router.post(
@@ -59,3 +75,82 @@ async def preview_promocode(
         final_amount_cents=final,
         currency=course.currency,
     )
+
+
+# ---------- Discount wallet (profile "Discounts" section) ----------
+
+
+def _to_read(sp, promo, course) -> SavedPromocodeRead:
+    return SavedPromocodeRead(
+        id=sp.id,
+        promocode_id=promo.id,
+        code=promo.code,
+        course_id=course.id,
+        course_title=course.title,
+        course_slug=course.slug,
+        discount_kind=promo.discount_kind,
+        discount_value=promo.discount_value,
+        expires_at=promo.expires_at,
+        status=promocode_service.saved_status(promo),
+        is_valid=promocode_service.saved_status(promo) == "usable",
+        saved_at=sp.created_at,
+    )
+
+
+def _to_applicable(sp, promo, course) -> SavedPromocodeApplicable:
+    base = course.effective_price_cents
+    is_valid = promocode_service.saved_status(promo) == "usable"
+    discount = final = None
+    if is_valid and base > 0:
+        discount = promocode_service.compute_discount_cents(
+            kind=promo.discount_kind,
+            value=promo.discount_value,
+            base_amount_cents=base,
+        )
+        final = base - discount
+    return SavedPromocodeApplicable(
+        **_to_read(sp, promo, course).model_dump(),
+        original_amount_cents=base,
+        discount_cents=discount,
+        final_amount_cents=final,
+        currency=course.currency,
+    )
+
+
+@me_router.get("", response_model=list[SavedPromocodeRead])
+async def list_wallet(
+    user: CurrentUser,
+    session: DbSession,
+    course_id: Annotated[uuid.UUID | None, Query()] = None,
+) -> list[SavedPromocodeRead]:
+    """List the user's saved promocodes.
+
+    Without ``course_id`` this is the full wallet (profile screen). With
+    ``course_id`` it returns only the codes that apply to that course,
+    each enriched with the price math (buy screen) — the response items
+    are then :class:`SavedPromocodeApplicable`.
+    """
+    rows = await promocode_service.list_saved_promocodes(
+        session, user, course_id=course_id
+    )
+    if course_id is not None:
+        return [_to_applicable(sp, promo, course) for sp, promo, course in rows]
+    return [_to_read(sp, promo, course) for sp, promo, course in rows]
+
+
+@me_router.post("", response_model=SavedPromocodeRead, status_code=status.HTTP_201_CREATED)
+async def save_to_wallet(
+    payload: SavePromocodeRequest, user: CurrentUser, session: DbSession
+) -> SavedPromocodeRead:
+    saved, promo = await promocode_service.save_promocode(
+        session, user, code=payload.code
+    )
+    course = await session.get(Course, promo.course_id)
+    return _to_read(saved, promo, course)
+
+
+@me_router.delete("/{saved_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_from_wallet(
+    saved_id: uuid.UUID, user: CurrentUser, session: DbSession
+) -> None:
+    await promocode_service.delete_saved_promocode(session, user, saved_id)

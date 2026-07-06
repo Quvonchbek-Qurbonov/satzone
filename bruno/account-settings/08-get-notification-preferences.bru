@@ -1,0 +1,14 @@
+meta {
+  name: Get notification preferences
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{base_url}}/me/preferences/notifications
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{access_token}}
+}

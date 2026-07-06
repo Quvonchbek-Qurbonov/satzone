@@ -7,10 +7,13 @@ directly translate into a buyer being over- or under-charged.
 """
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
 from app.models.enums import PromocodeDiscountKind
-from app.services.promocode_service import compute_discount_cents
+from app.models.promocode import Promocode
+from app.services.promocode_service import compute_discount_cents, saved_status
 
 
 @pytest.mark.parametrize(
@@ -66,3 +69,55 @@ def test_negative_base_returns_zero() -> None:
         )
         == 0
     )
+
+
+# ---------- Saved-code (wallet) status ----------
+
+_NOW = datetime(2026, 7, 6, tzinfo=UTC)
+
+
+def _promo(
+    *,
+    is_active: bool = True,
+    expires_at: datetime | None = None,
+    uses_count: int = 0,
+    max_uses: int = 1,
+) -> Promocode:
+    """In-memory Promocode — saved_status only reads plain attributes."""
+    return Promocode(
+        is_active=is_active,
+        expires_at=expires_at,
+        uses_count=uses_count,
+        max_uses=max_uses,
+    )
+
+
+def test_saved_status_usable() -> None:
+    assert saved_status(_promo(), now=_NOW) == "usable"
+    # Not-yet-expired code with a future expiry is still usable.
+    assert (
+        saved_status(_promo(expires_at=_NOW + timedelta(days=1)), now=_NOW)
+        == "usable"
+    )
+
+
+def test_saved_status_expired() -> None:
+    assert (
+        saved_status(_promo(expires_at=_NOW - timedelta(seconds=1)), now=_NOW)
+        == "expired"
+    )
+
+
+def test_saved_status_used() -> None:
+    assert saved_status(_promo(uses_count=1, max_uses=1), now=_NOW) == "used"
+
+
+def test_saved_status_revoked_wins_over_expired() -> None:
+    """Precedence: a revoked code reads 'revoked' even if also expired/used."""
+    promo = _promo(
+        is_active=False,
+        expires_at=_NOW - timedelta(days=1),
+        uses_count=1,
+        max_uses=1,
+    )
+    assert saved_status(promo, now=_NOW) == "revoked"

@@ -1,11 +1,11 @@
 meta {
-  name: Revoke a session
+  name: Revoke all sessions
   type: http
-  seq: 10
+  seq: 12
 }
 
 delete {
-  url: {{base_url}}/me/sessions/{{session_id}}
+  url: {{base_url}}/me/sessions
   auth: bearer
 }
 
