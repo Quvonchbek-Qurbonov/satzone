@@ -44,7 +44,7 @@ class Instructor(UUIDPKMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(150), nullable=False)
     title: Mapped[str | None] = mapped_column(String(150))
     bio: Mapped[str | None] = mapped_column(Text)
-    avatar_url: Mapped[str | None] = mapped_column(String(500))
+    avatar_url: Mapped[str | None] = mapped_column(String(2048))
     expertise: Mapped[list[str] | None] = mapped_column(ARRAY(String(80)))
     rating_avg: Mapped[float] = mapped_column(Numeric(3, 2), nullable=False, default=0)
     students_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

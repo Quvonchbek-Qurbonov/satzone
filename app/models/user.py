@@ -29,7 +29,7 @@ class User(UUIDPKMixin, TimestampMixin, Base):
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     full_name: Mapped[str] = mapped_column(String(150), nullable=False)
     phone_number: Mapped[str | None] = mapped_column(String(32), unique=True, index=True)
-    avatar_url: Mapped[str | None] = mapped_column(String(500))
+    avatar_url: Mapped[str | None] = mapped_column(String(2048))
     role: Mapped[UserRole] = mapped_column(user_role_enum, nullable=False, default=UserRole.USER)
     google_sub: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)
 
