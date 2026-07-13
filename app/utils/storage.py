@@ -147,23 +147,32 @@ def _s3_client():
     import boto3
     from botocore.config import Config
 
-    # Force the regional endpoint + SigV4 + virtual-host style. Without this,
-    # boto3 may presign against the global ``s3.amazonaws.com`` host; on fetch,
-    # S3 redirects (307) to the regional host and the signature breaks.
+    # Force an explicit endpoint + SigV4. Without this, boto3 may presign
+    # against the global ``s3.amazonaws.com`` host; on fetch, S3 redirects
+    # (307) to the regional host and the signature breaks.
     #
-    # Tighter-than-default timeouts so a stalled S3 socket fails fast instead
+    # ``AWS_S3_ENDPOINT_URL`` overrides the derived AWS host to target an
+    # S3-compatible provider (e.g. Cloudflare R2). R2 needs path-style
+    # addressing (``AWS_S3_ADDRESSING_STYLE=path``) since its API endpoint
+    # doesn't serve per-bucket virtual-host subdomains.
+    #
+    # Tighter-than-default timeouts so a stalled socket fails fast instead
     # of holding an in-flight streaming response open for the full default
     # 60 s — that's the failure mode that bubbled up as
     # ``ReadTimeoutError`` mid-segment when the local cache was missing.
+    endpoint_url = (
+        settings.AWS_S3_ENDPOINT_URL
+        or f"https://s3.{settings.AWS_REGION}.amazonaws.com"
+    )
     return boto3.client(
         "s3",
         aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
         aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
         region_name=settings.AWS_REGION,
-        endpoint_url=f"https://s3.{settings.AWS_REGION}.amazonaws.com",
+        endpoint_url=endpoint_url,
         config=Config(
             signature_version="s3v4",
-            s3={"addressing_style": "virtual"},
+            s3={"addressing_style": settings.AWS_S3_ADDRESSING_STYLE},
             connect_timeout=5,
             read_timeout=15,
             retries={"max_attempts": 3, "mode": "standard"},

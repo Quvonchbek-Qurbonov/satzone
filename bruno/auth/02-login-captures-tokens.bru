@@ -21,14 +21,14 @@ body:json {
   }
 }
 
-tests {
-  test("200 OK", function() {
-    expect(res.getStatus()).to.equal(200);
-  });
-}
-
 script:post-response {
   const j = res.getBody();
   if (j.access_token) bru.setEnvVar('access_token', j.access_token);
   if (j.refresh_token) bru.setEnvVar('refresh_token', j.refresh_token);
+}
+
+tests {
+  test("200 OK", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
 }

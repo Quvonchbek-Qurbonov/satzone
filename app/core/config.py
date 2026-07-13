@@ -83,6 +83,14 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: str | None = None
     AWS_REGION: str | None = None
     AWS_S3_BUCKET: str | None = None
+    # Override the S3 API endpoint to target an S3-compatible provider instead
+    # of AWS (e.g. Cloudflare R2: https://<account_id>.r2.cloudflarestorage.com).
+    # Unset → the regional AWS endpoint is derived from AWS_REGION. For R2 set
+    # AWS_REGION=auto and AWS_S3_ADDRESSING_STYLE=path.
+    AWS_S3_ENDPOINT_URL: str | None = None
+    # Request addressing style. AWS wants "virtual"; the R2 API endpoint wants
+    # "path" (virtual-host style resolves to a per-bucket subdomain R2 doesn't serve).
+    AWS_S3_ADDRESSING_STYLE: Literal["virtual", "path"] = "virtual"
     # When set, served URLs use this base (e.g. CloudFront) instead of presigning.
     AWS_S3_PUBLIC_BASE_URL: str | None = None
     # Lifetime of S3 presigned GET URLs (seconds). Default 1h — short enough that a
