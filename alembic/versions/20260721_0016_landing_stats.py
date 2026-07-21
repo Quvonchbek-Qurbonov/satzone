@@ -73,7 +73,8 @@ def upgrade() -> None:
 
     op.execute(
         sa.text(
-            "INSERT INTO landing_stats (id) VALUES (:id) ON CONFLICT DO NOTHING"
+            "INSERT INTO landing_stats (id) VALUES (CAST(:id AS uuid)) "
+            "ON CONFLICT DO NOTHING"
         ).bindparams(id=_SINGLETON_ID)
     )
 
