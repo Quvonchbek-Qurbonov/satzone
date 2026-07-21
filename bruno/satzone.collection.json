@@ -355,6 +355,41 @@
       ]
     },
     {
+      "name": "Landing",
+      "description": "Public landing-page statistics. Read is open to anyone (no sign-up); the update is admin-only.",
+      "item": [
+        {
+          "name": "Landing stats — get (public)",
+          "description": "Public — the marketing landing page reads these figures without any auth. Always returns a payload (zeros until an admin sets them).",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "url": "{{base_url}}/landing/stats"
+          }
+        },
+        {
+          "name": "Landing stats — update (admin)",
+          "description": "Admin only. Send any subset of the four figures; omitted fields are left unchanged.",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"students_count\": 12000,\n  \"average_score_gain\": 150,\n  \"practice_questions\": 5000,\n  \"top_student_sat_score\": 1580\n}"
+            },
+            "url": "{{base_url}}/landing/stats"
+          }
+        }
+      ]
+    },
+    {
       "name": "Explore",
       "item": [
         {

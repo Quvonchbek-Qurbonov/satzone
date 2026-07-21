@@ -1019,6 +1019,73 @@
         ]
       }
     },
+    "/api/v1/landing/stats": {
+      "get": {
+        "tags": [
+          "landing"
+        ],
+        "summary": "Get Landing Stats",
+        "description": "Public \u2014 the landing page reads this without signing up.",
+        "operationId": "get_landing_stats_api_v1_landing_stats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LandingStatsRead"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "landing"
+        ],
+        "summary": "Update Landing Stats",
+        "description": "Admin only \u2014 set any subset of the landing-page figures.",
+        "operationId": "update_landing_stats_api_v1_landing_stats_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LandingStatsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LandingStatsRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/categories": {
       "get": {
         "tags": [
@@ -14463,6 +14530,94 @@
           "expires_in"
         ],
         "title": "IssueOtpResponse"
+      },
+      "LandingStatsRead": {
+        "properties": {
+          "students_count": {
+            "type": "integer",
+            "title": "Students Count",
+            "description": "Total number of students on the platform"
+          },
+          "average_score_gain": {
+            "type": "integer",
+            "title": "Average Score Gain",
+            "description": "Average SAT score points gained by students"
+          },
+          "practice_questions": {
+            "type": "integer",
+            "title": "Practice Questions",
+            "description": "Number of practice questions available"
+          },
+          "top_student_sat_score": {
+            "type": "integer",
+            "title": "Top Student Sat Score",
+            "description": "Highest SAT score achieved by a student"
+          }
+        },
+        "type": "object",
+        "required": [
+          "students_count",
+          "average_score_gain",
+          "practice_questions",
+          "top_student_sat_score"
+        ],
+        "title": "LandingStatsRead",
+        "description": "Public landing-page statistics \u2014 no auth required to read."
+      },
+      "LandingStatsUpdate": {
+        "properties": {
+          "students_count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Students Count"
+          },
+          "average_score_gain": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Score Gain"
+          },
+          "practice_questions": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Practice Questions"
+          },
+          "top_student_sat_score": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top Student Sat Score"
+          }
+        },
+        "type": "object",
+        "title": "LandingStatsUpdate",
+        "description": "Admin-only update. Every field is optional \u2014 only the supplied ones change."
       },
       "LessonAdminRead": {
         "properties": {

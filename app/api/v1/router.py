@@ -18,6 +18,7 @@ from app.api.v1 import (
     instructor,
     instructors,
     internal,
+    landing,
     notes,
     onboarding,
     payments,
@@ -36,6 +37,7 @@ api_router.include_router(auth.router)
 api_router.include_router(account.router)
 api_router.include_router(onboarding.router)
 api_router.include_router(home.router)
+api_router.include_router(landing.router)
 api_router.include_router(categories.router)
 api_router.include_router(instructors.router)
 api_router.include_router(courses.router)

@@ -68,6 +68,7 @@ uvicorn app.main:app --reload
 | Auth               | `POST /auth/register`, `/login`, `/refresh`, `/logout`, `/verify-email`, `/resend-verification`, `/phone`, `/verify-phone`, `/resend-phone-code`, `/password/forgot`, `/password/reset`, `GET /auth/me` |
 | Onboarding         | `GET/PUT /onboarding`                                                                          |
 | Home               | `GET /home` (personalized when token provided)                                                 |
+| Landing            | `GET /landing/stats` (public marketing figures — no sign-up), `PUT /landing/stats` (admin-only; sets students count, average score gain, practice questions, top student SAT score) |
 | Explore            | `GET /courses` (filters: search, category_id/slug, instructor_id, level, is_free, min_rating, duration, tags, sort), `GET /categories`, `GET /categories/tree`, `GET /instructors`, `GET /instructors/{slug}` |
 | Course detail      | `GET /courses/{slug}`, `/curriculum`, `/related`, `/reviews` (list/create/update/delete)        |
 | My Learnings       | `POST /me/enrollments`, `GET /me/enrollments`, `PUT .../lessons/{lesson_id}/progress`, `GET /me/certificates`, `/me/wishlist` |

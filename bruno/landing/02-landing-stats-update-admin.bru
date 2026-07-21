@@ -1,0 +1,28 @@
+meta {
+  name: Landing stats — update (admin)
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{base_url}}/landing/stats
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{access_token}}
+}
+
+body:json {
+  {
+    "students_count": 12000,
+    "average_score_gain": 150,
+    "practice_questions": 5000,
+    "top_student_sat_score": 1580
+  }
+}

@@ -37,6 +37,7 @@ from app.models.enums import (
     TransactionState,
     UserRole,
 )
+from app.models.landing import LandingStats
 from app.models.media import MediaKey
 from app.models.note import LessonNote
 from app.models.notification import Notification
@@ -62,6 +63,7 @@ __all__ = [
     "Enrollment",
     "HlsStatus",
     "Instructor",
+    "LandingStats",
     "Lesson",
     "LessonAttachment",
     "LessonNote",
