@@ -457,8 +457,13 @@ def _verify_basic_auth(auth_header: str | None) -> bool:
     return secrets.compare_digest(key, settings.PAYME_KEY) and user in {"Paycom", "paycom"}
 
 
-def _err(code: int, message: str) -> dict[str, Any]:
-    return {"error": {"code": code, "message": {"en": message, "ru": message, "uz": message}}}
+def _err(code: int, message: str, data: str | None = None) -> dict[str, Any]:
+    err: dict[str, Any] = {"code": code, "message": {"en": message, "ru": message, "uz": message}}
+    if data is not None:
+        # For account errors (-31050..-31099) Payme expects ``data`` to name the
+        # offending account field so it can highlight the right input.
+        err["data"] = data
+    return {"error": err}
 
 
 async def handle_merchant_rpc(
@@ -477,6 +482,15 @@ async def handle_merchant_rpc(
     params = body.get("params") or {}
     rpc_id = body.get("id")
 
+    # Log what Payme actually sends so the account/amount can be cross-checked
+    # against the DB when a sandbox test disagrees with our response.
+    logger.info(
+        "payme_rpc_in",
+        method=method,
+        account=params.get("account"),
+        amount=params.get("amount"),
+    )
+
     handlers = {
         "CheckPerformTransaction": _check_perform_transaction,
         "CreateTransaction": _create_transaction,
@@ -492,7 +506,7 @@ async def handle_merchant_rpc(
     try:
         result = await handler(session, params)
     except _RpcError as exc:
-        return {"jsonrpc": "2.0", "id": rpc_id, **_err(exc.code, exc.message)}
+        return {"jsonrpc": "2.0", "id": rpc_id, **_err(exc.code, exc.message, exc.data)}
     except Exception as exc:  # noqa: BLE001
         logger.exception("payme_rpc_handler_error", method=method, error=str(exc))
         return {"jsonrpc": "2.0", "id": rpc_id, **_err(-32400, "Internal error")}
@@ -500,23 +514,24 @@ async def handle_merchant_rpc(
 
 
 class _RpcError(Exception):
-    def __init__(self, code: int, message: str) -> None:
+    def __init__(self, code: int, message: str, data: str | None = None) -> None:
         self.code = code
         self.message = message
+        self.data = data
 
 
 async def _resolve_order(session: AsyncSession, params: dict[str, Any]) -> Order:
     account = params.get("account") or {}
     order_id_raw = account.get("order_id")
     if not order_id_raw:
-        raise _RpcError(ERR_INVALID_ACCOUNT, "order_id is required")
+        raise _RpcError(ERR_INVALID_ACCOUNT, "order_id is required", data="order_id")
     try:
         order_id = uuid.UUID(str(order_id_raw))
     except ValueError as exc:
-        raise _RpcError(ERR_INVALID_ACCOUNT, "order_id is not a valid UUID") from exc
+        raise _RpcError(ERR_INVALID_ACCOUNT, "order_id is not a valid UUID", data="order_id") from exc
     order = await session.get(Order, order_id)
     if order is None:
-        raise _RpcError(ERR_INVALID_ACCOUNT, "Order not found")
+        raise _RpcError(ERR_INVALID_ACCOUNT, "Order not found", data="order_id")
     return order
 
 
@@ -528,7 +543,9 @@ async def _check_perform_transaction(
     if amount != order.amount_cents:
         raise _RpcError(ERR_INVALID_AMOUNT, "Amount does not match order total")
     if order.status != OrderStatus.PENDING:
-        raise _RpcError(ERR_CANT_PERFORM, "Order is not awaiting payment")
+        # Order exists but can't accept a new payment (already paid/processing/
+        # cancelled). Payme classifies this as an account error, not -31008.
+        raise _RpcError(ERR_INVALID_ACCOUNT, "Order is not awaiting payment", data="order_id")
     return {"allow": True}
 
 
@@ -557,7 +574,7 @@ async def _create_transaction(session: AsyncSession, params: dict[str, Any]) -> 
         }
 
     if order.status != OrderStatus.PENDING:
-        raise _RpcError(ERR_CANT_PERFORM, "Order is not awaiting payment")
+        raise _RpcError(ERR_INVALID_ACCOUNT, "Order is not awaiting payment", data="order_id")
 
     txn = Transaction(
         order_id=order.id,

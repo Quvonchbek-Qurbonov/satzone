@@ -319,6 +319,68 @@ These endpoints require a user with `role=instructor` (or `admin`) — `auth/reg
     - SHORT_ANSWER comparisons strip whitespace + lowercase on both sides, so accepted answers entered with stray spaces still match.
 13. Back as the instructor: **Assessments → List submissions**, **Instructor → Course analytics**.
 
+### Payme merchant integration (cabinet setup + sandbox testing)
+
+Two distinct Payme surfaces live in this backend, don't confuse them:
+
+- **Subscribe / cards API** (outbound) — `payme_client.py` calls Payme
+  (`cards.create`, `receipts.pay`, …) for the saved-card flow. Authenticated
+  with the `X-Auth` header.
+- **Merchant JSON-RPC callback** (inbound) — Payme calls **us** at
+  `POST /payments/payme/callback` (`CheckPerformTransaction`,
+  `CreateTransaction`, `PerformTransaction`, `CheckTransaction`,
+  `CancelTransaction`, `GetStatement`). Authenticated with HTTP Basic
+  `Paycom:<PAYME_KEY>`.
+
+**Cabinet registration values** — when you create the cashbox in the Payme
+merchant cabinet:
+
+| Cabinet field | Value |
+| ------------- | ----- |
+| Endpoint / URL | `https://<prod-domain>/api/v1/payments/payme/callback` (public HTTPS — not `localhost`) |
+| Rekvizit (account parameter) — **there is only one** | key `order_id`, type **String** (UUID, not a number) |
+| Rekvizit title — RU | `Идентификатор заказа` |
+| Rekvizit title — EN | `Order ID` |
+| Rekvizit title — UZ | `Buyurtma raqami` |
+
+The rekvizit **key must be exactly `order_id`** — the callback reads
+`params.account["order_id"]` (`payment_service._resolve_order`) and looks the
+order up by UUID. Any other key fails with `order_id is required`.
+
+**Amount is in tiyin.** Payme sends `amount` in tiyin (1 UZS = 100 tiyin) and
+the callback compares it against `order.amount_cents`, which must therefore be
+stored in tiyin. `CheckPerformTransaction` rejects a mismatch with
+`Amount does not match order total`.
+
+**Credentials** live in the backend `.env`, not in Bruno (the callback is
+called *by* Payme, so Bruno only simulates it):
+
+```env
+PAYME_MERCHANT_ID=<merchant id>
+PAYME_KEY=<test key while sandboxing, prod key when live>
+PAYME_TEST_MODE=true   # false in prod; flips checkout.test.paycom.uz → checkout.paycom.uz
+```
+
+In Bruno, set the `payme_key` **secret** env var to the same `PAYME_KEY` so the
+callback-simulation request can authenticate as `Paycom:<payme_key>`.
+
+**Sandbox test flow** (Payme's cabinet fires the JSON-RPC lifecycle at your
+public endpoint; you can also rehearse it locally in Bruno):
+
+1. **Auth → Login**, **Explore → List courses** (sets `course_id`).
+2. **Payments → Create order (course)** — POSTs `/orders`, captures `order_id`
+   into the environment. Keep the order **PENDING** (don't pay it in-app) — the
+   callback only accepts pending orders.
+3. Note the order's `amount_cents` from the response — that's the tiyin amount
+   the Payme test must send.
+4. **Payments → Payme merchant callback (test)** — simulates a call *from*
+   Payme, authed `Paycom:<payme_key>`, body `account.order_id = {{order_id}}`.
+   Set its `amount` to match the order's `amount_cents` or it returns
+   `Amount does not match`.
+5. In the real cabinet: run the full test suite there; it won't let you go live
+   until every method passes. Then swap `PAYME_KEY` to the prod key, set
+   `PAYME_TEST_MODE=false`, redeploy, and ask Payme to activate the cashbox.
+
 ## Sync workflow when the API changes
 
 `satzone.collection.json` is the canonical source for the request tree; the `<folder>/*.bru` files are generated from it. After any route, schema, or docstring change:
