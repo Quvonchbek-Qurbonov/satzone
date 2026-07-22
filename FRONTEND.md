@@ -281,10 +281,14 @@ client. Until then, treat it purely as a UI-language hint.
 
 ### Money
 
-- `price_cents` and `discount_price_cents` are integers (USD cents by default).
-- `currency` is an ISO 4217 code (`"USD"`, `"EUR"`, ...).
+- `price_cents`, `discount_price_cents`, and order/transaction `amount_cents`
+  are integers in the **smallest unit of `currency`** — cents for USD, **tiyin
+  for UZS** (the Payme default: `500000` = 5 000 UZS). Divide by 100 to display.
+- `currency` is an ISO 4217 code (`"UZS"`, `"USD"`, ...).
 - `is_free` (computed boolean on `CourseSummary`) is `true` when the effective
   price (discount or list) is `0`. Trust this rather than recomputing.
+- Payment amounts are **server-authoritative** — never send an amount from the
+  client; read it off the order (see §4.13).
 
 ### Media URL handling
 
@@ -733,6 +737,48 @@ Money moves through three things: **payment methods** (saved cards),
 either charges a saved card synchronously or hands back a Payme checkout URL
 for redirect.
 
+#### Payme payment model — read this first
+
+All money runs through **Payme** (Uzbekistan). There are **two** ways a buyer
+pays an order and the UI picks one per checkout:
+
+| Path | Pay endpoint | UX | When it settles |
+| ---- | ------------ | -- | --------------- |
+| **A. Hosted checkout (redirect)** | `POST /orders/{id}/pay/payme` | Returns a `checkout_url`; you redirect the browser to Payme's page, the user pays there, Payme redirects back to your `return_url` | **Async** — Payme calls the backend callback; poll `GET /orders/{id}` until `paid` |
+| **B. Saved card (on-file)** | `POST /orders/{id}/pay/card` | Card is tokenized + SMS-verified once, then charged in-app with **no redirect** | **Sync** — the `PayResponse` already carries the final `status` |
+
+Both are Payme under the hood (path B uses Payme's card-tokenization / Subscribe
+API). Path A needs **no card data in your UI at all**; path B keeps the user on
+your page but requires the save-card + OTP dance first. You can offer either or
+both on the checkout screen.
+
+**Amounts are in minor units of `currency` — for UZS that means tiyin.**
+`amount_cents` on every order/transaction is an integer in the smallest unit of
+`order.currency`:
+
+- For **UZS** (the Payme default) the unit is **tiyin**: `amount_cents: 5000000`
+  = **50 000 UZS**. Divide by 100 to display som.
+- For USD-priced items it's cents.
+
+**Never send an amount from the client.** The server derives `amount_cents` from
+the course/program price (and any promocode); Payme independently validates it
+against that stored value. Just read `amount_cents` off `OrderRead` and format
+as `amount_cents / 100` with `currency`.
+
+**Order status lifecycle** (`OrderStatus`):
+
+| `status` | Meaning | Set by |
+| -------- | ------- | ------ |
+| `pending` | Order created, nothing charged | `POST /orders` |
+| `processing` | Payme created a transaction but hasn't captured it yet (transient hosted-checkout state) | Payme callback (`CreateTransaction`) |
+| `paid` | Money captured; entitlement (enrollment) granted | card charge, or Payme callback (`PerformTransaction`) |
+| `cancelled` | Buyer cancelled a `pending` order, or Payme cancelled before capture | `DELETE /orders/{id}` / Payme callback |
+| `refunded` | A previously-`paid` Payme transaction was reversed | Payme callback (`CancelTransaction`) |
+| `failed` | A charge attempt failed | pay path on error |
+
+Treat anything that isn't `paid` as "not entitled yet." Only `paid` guarantees
+the enrollment exists. `processing` is normal and transient — keep polling.
+
 #### Saved cards (`/me/payment-methods`)
 
 | Method & path | Body | Returns | Notes |
@@ -784,6 +830,71 @@ don't have it.
 `original_amount_cents` + `discount_cents` (and `promocode_id`) record what
 was knocked off. When no code was used, `original_amount_cents` is `null` and
 `discount_cents` is `0`.
+
+#### Paying an order — both paths, step by step
+
+**Path A — Payme hosted checkout (redirect; no card data in your UI):**
+
+1. `POST /orders` → capture `order_id`; `amount_cents` is already the final
+   (discounted) total.
+2. `POST /orders/{order_id}/pay/payme` with
+   `{ return_url: "https://yourapp.com/checkout/return?order=" + order_id }`
+   → `PayResponse.checkout_url`.
+3. Redirect the browser to `checkout_url` — a **full-page navigation**, not XHR
+   (it's a Payme-hosted page on `checkout.paycom.uz`, or `test.paycom.uz` in
+   sandbox).
+4. The user pays on Payme's page; Payme redirects back to your `return_url`.
+   **Do not treat the redirect as proof of payment** — it only means the user
+   returned. Payment is confirmed server-side by the merchant callback.
+5. On your return page, **poll** `GET /orders/{order_id}` every ~2 s (give up
+   after ~30 s and show "still processing") until `status` becomes `paid`
+   (success) or `cancelled` / `failed`. The callback usually settles within a
+   few seconds.
+6. On `paid`: the enrollment is already created — route into the course;
+   `GET /me/enrollments` includes it.
+
+`return_url` is optional but **always set it** — it's embedded in the checkout
+link (Payme's `c=` param) and must be an **absolute** URL. Omit it and the user
+lands on Payme's own completion page with no way back to your app.
+
+**Path B — saved card (on-file; no redirect):**
+
+1. **Save the card once** — `POST /me/payment-methods` with the PAN
+   (`PaymentMethodCreate`). The PAN is tokenized at Payme and never stored; you
+   get back `last4` + `brand`. A new card is `is_verified: false`.
+2. **Verify it once** — `POST /me/payment-methods/{pm_id}/verify/start` → Payme
+   SMS-texts the cardholder an OTP. Collect it, then
+   `POST /me/payment-methods/{pm_id}/verify/confirm { code }` →
+   `is_verified: true`. **A card must be verified before it can be charged.**
+3. **Charge** — `POST /orders/{order_id}/pay/card { payment_method_id }`. This
+   is **synchronous**: on success the `PayResponse` already carries
+   `status: "paid"` and a `transaction_id`. **No polling.**
+4. On `paid`: enrollment is granted — route into the course.
+
+Steps 1–2 are once per card; reuse a verified card for later orders and only do
+step 3 per purchase.
+
+**Payments error codes** (in addition to the promocode errors below):
+
+| HTTP | code | Path | Meaning / UI |
+| ---- | ---- | ---- | ------------ |
+| 409 | `conflict` — "Order is not awaiting payment" | A, B | Order isn't `pending` (already paid/cancelled) — refetch it, don't retry the charge |
+| 403 | `card_not_verified` | B | Card exists but hasn't passed OTP — route through verify/start → verify/confirm |
+| 409 | `conflict` — "Card is already verified" | B | verify/start on an already-verified card — skip to the charge |
+| 422 | `free_item` | order create | Item is free — enroll directly (`POST /me/enrollments` or `POST /programs/{id}/enroll`); don't create an order |
+| 422 | `payment_provider_unconfigured` | A | Backend has no Payme credentials — infra issue, surface a generic "payments unavailable" |
+| 502 | `payment_provider_error` | any | Payme rejected or is unreachable (declined card, bad PAN at tokenization, wrong OTP, network) — show "payment failed, try again"; retryable |
+| 404 | `not_found` | any | Unknown order or payment method |
+
+`payment_provider_error` (502) is the catch-all whenever Payme refuses — a
+declined charge, an invalid card at save time, or a wrong OTP at verify/confirm.
+`error.message` carries Payme's own reason (localized by Payme when available).
+Treat it as retryable and keep the user on the page.
+
+The Payme **merchant callback** (`POST /payments/payme/callback`) is
+**server-to-server** — Payme calls it, never your UI. Your frontend only ever
+reads order status via `GET /orders/{order_id}`; the callback is what flips
+`pending → processing → paid` behind the scenes.
 
 #### Promocodes & the discount wallet
 
@@ -838,21 +949,22 @@ Notes for the UI:
   `409 promocode_exhausted`, `422 promocode_makes_free`. Saving adds one
   more: `409 promocode_already_saved`.
 
-##### Suggested flow
+##### Suggested checkout flow (with promocodes)
+
+This is the full buy screen; the pay step itself is either Payme path from
+"Paying an order — both paths" above.
 
 0. On the buy screen, optionally show applicable saved codes with
    `GET /me/promocodes?course_id={id}` and/or let the user type one and price
-   it with `POST /promocodes/preview`.
-1. User clicks "Buy" on a course → `POST /orders` with the course id (and
-   `promocode` if one was chosen/typed) → store `order_id`. The returned
-   `amount_cents` is already discounted.
-2. Show the user the saved cards (`GET /me/payment-methods`). Two options:
-   - **Pay with saved card** → `POST /orders/{order_id}/pay/card` → on `status: "paid"`, show success and route to the course.
-   - **Pay with Payme** → `POST /orders/{order_id}/pay/payme` with `return_url` set to your "thank you" page → redirect to `checkout_url`.
-3. After Payme redirects back, poll `GET /orders/{order_id}` until `status: "paid"` (the merchant callback runs server-side; usually a few seconds). On success, the matching enrollment is auto-created — `GET /me/enrollments` will include it.
-4. If the user cancels mid-flow, hit `DELETE /orders/{order_id}` so the dashboard doesn't show a stale "pending order."
-
-The Payme merchant callback (`POST /payments/payme/callback`) is **server-to-server**: you don't call it from the frontend. The only thing your UI needs to know is the order status, which `GET /orders/{order_id}` reflects.
+   it with `POST /promocodes/preview` (no reservation — just shows the savings).
+1. User clicks "Buy" → `POST /orders` with the course id **and** `promocode` if
+   one was chosen/typed → store `order_id`. The returned `amount_cents` is
+   already discounted; the code is now reserved for this order.
+2. Pay the order via **Path A (Payme redirect)** or **Path B (saved card)** —
+   see the step-by-step above.
+3. If the user abandons checkout, `DELETE /orders/{order_id}` so the dashboard
+   doesn't show a stale "pending order" **and** the promocode reservation is
+   released back for others to use.
 
 ### 4.14 Instructor management (`/instructor`, role: instructor or admin)
 
@@ -1292,6 +1404,12 @@ docker compose exec db psql -U satzone -d satzone -c \
   the same transition.
 - **Card PAN is never persisted.** `PaymentMethodRead` only carries `last4` +
   `brand` + `expires_*`. Don't try to display the full number.
+- **Amounts are minor units — tiyin for UZS.** `amount_cents: 5000000` is
+  50 000 UZS, not 5 million. Format as `amount_cents / 100` with `currency`,
+  and never post an amount to the server — it's derived from the item price.
+- **A saved card must be OTP-verified before `pay/card`.** A freshly-saved card
+  is `is_verified: false` and charging it returns `403 card_not_verified`. Run
+  verify/start → verify/confirm first.
 - **`X-Forwarded-For` matters.** If your frontend dev server proxies API
   calls, make sure it forwards the client IP — both rate-limit buckets and
   playback token IP-binding rely on it.

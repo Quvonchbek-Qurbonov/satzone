@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import ARRAY, ENUM as PgEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -141,8 +141,17 @@ class Lesson(UUIDPKMixin, TimestampMixin, Base):
     # ``hls_status`` reflects packaging progress. ``hls_segments_count`` is
     # populated once packaging completes and is the authoritative count
     # used by the anti-seek gating layer to detect "fully watched".
+    #
+    # ``hls_segment_durations`` holds each segment's real playback length in
+    # seconds, parsed from the manifest's ``#EXTINF`` lines. The transcode path
+    # emits uniform segments, but the stream-copy fast path cuts at the source's
+    # existing keyframes, so segments are *not* uniform — the anti-seek gate
+    # reads these durations instead of assuming ``HLS_SEGMENT_SECONDS``. Null
+    # for lessons packaged before this column existed (gate falls back to the
+    # nominal segment length).
     hls_master_key: Mapped[str | None] = mapped_column(String(500))
     hls_status: Mapped[HlsStatus | None] = mapped_column(hls_status_enum)
     hls_segments_count: Mapped[int | None] = mapped_column(Integer)
+    hls_segment_durations: Mapped[list[float] | None] = mapped_column(ARRAY(Float))
 
     section: Mapped[CourseSection] = relationship(back_populates="lessons")

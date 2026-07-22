@@ -15071,6 +15071,20 @@
             ],
             "title": "Segment Seconds"
           },
+          "segment_durations": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Segment Durations"
+          },
           "drm": {
             "anyOf": [
               {

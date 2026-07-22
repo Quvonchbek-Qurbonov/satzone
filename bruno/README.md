@@ -117,11 +117,11 @@ For **enrolled students**, the manifest endpoint serves a *sliding* HLS playlist
 
 Admins, course owners, and viewers of `is_free_preview` lessons bypass the gate and see the full VOD manifest.
 
-`/lesson playback` returns `total_segments` and `segment_seconds` so the player can render a static, non-interactive progress bar that matches the server's authoritative duration without trusting `<video>.duration`.
+`/lesson playback` returns `total_segments` and `segment_seconds` so the player can render a static, non-interactive progress bar that matches the server's authoritative duration without trusting `<video>.duration`. Lessons packaged by the non-uniform stream-copy fast path also return `segment_durations` (per-segment seconds, aligned with segment indices); it is `null` for uniform transcode lessons, where every segment is `segment_seconds` long.
 
 1. **Auth → Login** as a user enrolled in the course (or use a `is_free_preview=true` lesson; admins / course owners can also bypass).
 2. **Explore → Course curriculum** to capture `lesson_id`.
-3. **Video Streaming → Lesson playback** — captures `playback_token`, `lesson_hls_url`. Returns `hls_url=null` while `hls_status` is still `pending` (background packaging) — poll until `ready`. Also returns `total_segments` + `segment_seconds`.
+3. **Video Streaming → Lesson playback** — captures `playback_token`, `lesson_hls_url`. Returns `hls_url=null` while `hls_status` is still `pending` (background packaging) — poll until `ready`. Also returns `total_segments` + `segment_seconds` (+ `segment_durations` for stream-copy lessons).
 4. **Video Streaming → Lesson HLS — master playlist** returns the manifest with rewritten signed URIs for both the AES-128 key and every segment — pass it straight to hls.js / Safari.
 5. **Video Streaming → Lesson HLS — content key** returns the 16-byte content key. The player fetches this automatically when following the manifest.
 6. **Video Streaming → Lesson HLS — first segment** is encrypted bytes; only useful in combination with the key.

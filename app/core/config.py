@@ -111,6 +111,29 @@ class Settings(BaseSettings):
     MEDIA_KEK: str | None = None
     # ffmpeg binary path (override if not on PATH).
     FFMPEG_BIN: str = "ffmpeg"
+    # ffprobe binary path (ships with ffmpeg; override if not on PATH). Used to
+    # decide whether a source can be HLS-packaged by stream-copy (fast) instead
+    # of a full re-encode (slow).
+    FFPROBE_BIN: str = "ffprobe"
+    # Source codecs we can segment without re-encoding. Anything else falls
+    # back to a libx264/aac transcode.
+    HLS_COPY_VIDEO_CODECS: list[str] = Field(default_factory=lambda: ["h264"])
+    HLS_COPY_AUDIO_CODECS: list[str] = Field(default_factory=lambda: ["aac"])
+    # Stream-copy is only safe when the raw bitstream is one every browser can
+    # decode. ``codec_name == h264`` is not enough — a High 10 / 4:4:4 / 10-bit
+    # source is still H.264 but won't play in a ``<video>`` tag. We only copy
+    # when the profile *and* pixel format are in these allowlists; otherwise we
+    # transcode to normalise the stream (the old always-transcode behaviour).
+    # Profiles are matched case-insensitively against ffprobe's ``profile``.
+    HLS_COPY_VIDEO_PROFILES: list[str] = Field(
+        default_factory=lambda: [
+            "constrained baseline",
+            "baseline",
+            "main",
+            "high",
+        ]
+    )
+    HLS_COPY_PIX_FMTS: list[str] = Field(default_factory=lambda: ["yuv420p", "yuvj420p"])
     # HLS segment length in seconds.
     HLS_SEGMENT_SECONDS: int = 6
     # Auto-package on lesson video upload. Disable to package out-of-band.

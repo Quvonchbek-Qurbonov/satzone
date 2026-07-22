@@ -170,6 +170,7 @@ async def lesson_playback(
         hls_status=lesson.hls_status,
         total_segments=lesson.hls_segments_count,
         segment_seconds=settings.HLS_SEGMENT_SECONDS,
+        segment_durations=lesson.hls_segment_durations,
         drm=_drm_init(lesson_id),
     )
 

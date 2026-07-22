@@ -24,9 +24,15 @@ class LessonPlaybackResponse(ORMModel):
     # a static, non-interactive progress bar that matches the server's
     # watermark. Null while packaging is still running.
     total_segments: int | None = None
-    # Authoritative segment duration; combine with ``total_segments`` to
-    # show total length without trusting ``<video>.duration``.
+    # Authoritative *nominal* segment duration. Kept for backwards
+    # compatibility and as the value to use when ``segment_durations`` is null.
     segment_seconds: int | None = None
+    # Real per-segment durations (seconds), positionally aligned with segment
+    # indices. Populated for lessons packaged with the non-uniform stream-copy
+    # path; null for uniform (transcode) lessons and older packages, where
+    # every segment is ``segment_seconds`` long. Lets the player render an
+    # accurate progress bar without trusting ``<video>.duration``.
+    segment_durations: list[float] | None = None
     drm: DRMInit | None = None
 
 

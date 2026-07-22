@@ -293,6 +293,31 @@ def visible_segment_ceiling(max_segment_index: int) -> int:
     return max_segment_index + settings.STREAM_LOOKAHEAD_SEGMENTS
 
 
+def _segment_end_offset(
+    durations: list[float] | None, seg_index: int, nominal: int
+) -> float:
+    """Playback seconds elapsed through the END of segment ``seg_index``.
+
+    Uses the real per-segment durations when the packager recorded them
+    (stream-copy produces non-uniform segments); otherwise assumes every
+    segment is ``nominal`` seconds — the uniform transcode-path behaviour and
+    the fallback for lessons packaged before durations were stored.
+    """
+    if durations:
+        end = min(seg_index, len(durations) - 1)
+        return float(sum(durations[: end + 1]))
+    return (seg_index + 1) * float(nominal)
+
+
+def _segment_length(
+    durations: list[float] | None, seg_index: int, nominal: int
+) -> float:
+    """Real playback length of a single segment, or ``nominal`` if unknown."""
+    if durations and 0 <= seg_index < len(durations):
+        return durations[seg_index]
+    return float(nominal)
+
+
 async def gate_segment_fetch(
     session: AsyncSession,
     enrollment: Enrollment,
@@ -324,6 +349,7 @@ async def gate_segment_fetch(
     seg_dur = settings.HLS_SEGMENT_SECONDS
     lookahead = settings.STREAM_LOOKAHEAD_SEGMENTS
     max_rate = settings.STREAM_MAX_RATE_MULTIPLIER
+    durations = lesson.hls_segment_durations
     now = _now()
 
     # Rule 1 — anti-skip. Re-fetching ≤ watermark is fine; this only blocks
@@ -332,18 +358,29 @@ async def gate_segment_fetch(
         raise SegmentSkipBlocked()
 
     # Build the candidate updated state. We commit it only after the rate
-    # check passes.
+    # check passes. Each gap is credited up to the length of the segment being
+    # fetched — for uniform (transcode) segments that's the nominal 6s; for
+    # stream-copy segments it's the real EXTINF duration, so a legitimately
+    # long segment banks the watch time it actually takes.
     if progress.last_segment_at is None:
         gap = 0
     else:
         gap = max(0, int((now - progress.last_segment_at).total_seconds()))
-    credit = progress.play_credit_seconds + min(gap, seg_dur)
+    seg_clamp = max(1, round(_segment_length(durations, seg_index, seg_dur)))
+    credit = progress.play_credit_seconds + min(gap, seg_clamp)
     new_max = max(progress.max_segment_index, seg_index)
 
-    # Rule 2 — anti-fast-forward. The first ``lookahead`` segments are free
-    # so initial buffering works; everything past that is rate-limited
-    # against accumulated play credit.
-    required_credit = max(0, (new_max + 1 - lookahead) * seg_dur / max_rate)
+    # Rule 2 — anti-fast-forward. The first ``lookahead`` segments are free so
+    # initial buffering works; past that, the user must have banked enough
+    # play credit to have legitimately watched up to the start of the
+    # look-ahead window. We measure that boundary from the real segment
+    # timeline (``_segment_end_offset``) rather than assuming uniform lengths.
+    gate_index = new_max - lookahead
+    required_credit = (
+        0.0
+        if gate_index < 0
+        else _segment_end_offset(durations, gate_index, seg_dur) / max_rate
+    )
     if credit < required_credit:
         # Don't persist; let the player retry once enough time has elapsed.
         raise SegmentRateExceeded()
