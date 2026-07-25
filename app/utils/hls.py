@@ -141,16 +141,30 @@ def _run_ffmpeg(source: Path, workdir: Path, key_info: Path, *, copy: bool) -> N
         # player rejects mid-stream (segments download but fail to decode).
         codec_args = ["-c", "copy", "-avoid_negative_ts", "make_zero"]
     else:
-        # Full transcode. ``-force_key_frames`` pins a keyframe at every segment
-        # boundary so each ``.ts`` is exactly ``seg_seconds`` long. The gate no
-        # longer *requires* this (it reads real per-segment durations), but
-        # uniform segments keep seek granularity fine and the manifest small.
+        # Full transcode → guaranteed MSE-safe HLS.
+        #  * -fps_mode cfr : force constant frame rate so segment timestamps
+        #    stay contiguous across boundaries (VFR sources break MSE).
+        #    On ffmpeg < 5.1 use ["-vsync", "cfr"] instead.
+        #  * -force_key_frames at each segment boundary → libx264 emits an IDR
+        #    there, so every .ts is independently decodable (open-GOP sources
+        #    otherwise produce non-IDR segment starts that MSE rejects) and each
+        #    ``.ts`` is exactly ``seg_seconds`` long.
+        #  * -avoid_negative_ts make_zero : rebase timestamps to start at zero
+        #    (covers edit-list / non-zero-start-PTS sources).
+        #  * audio normalised to stereo 48 kHz AAC-LC.
         codec_args = [
             "-c:v", "libx264",
-            "-c:a", "aac",
-            "-preset", "veryfast",
+            "-profile:v", "high",
             "-pix_fmt", "yuv420p",
+            "-preset", "veryfast",
+            "-crf", "20",
+            "-fps_mode", "cfr",
             "-force_key_frames", f"expr:gte(t,n_forced*{seg_seconds})",
+            "-avoid_negative_ts", "make_zero",
+            "-c:a", "aac",
+            "-b:a", "128k",
+            "-ar", "48000",
+            "-ac", "2",
         ]
     cmd = [
         settings.FFMPEG_BIN,
@@ -290,7 +304,7 @@ def _run_packaging(
         # Fast path: if the source is already H.264/AAC, segment by stream-copy
         # (seconds). Otherwise transcode. If copy fails mid-way (odd container /
         # bitstream), fall back to a transcode so the upload still succeeds.
-        use_copy = _can_stream_copy(source)
+        use_copy = settings.HLS_STREAM_COPY_ENABLED and _can_stream_copy(source)
         try:
             _run_ffmpeg(source, workdir, key_info, copy=use_copy)
         except RuntimeError:

@@ -134,6 +134,11 @@ class Settings(BaseSettings):
         ]
     )
     HLS_COPY_PIX_FMTS: list[str] = Field(default_factory=lambda: ["yuv420p", "yuvj420p"])
+    # Stream-copy is only MSE-safe for closed-GOP, CFR H.264/AAC sources.
+    # Open-GOP / VFR uploads (screen & lecture recordings) copy cleanly but
+    # fail in-browser (SourceBuffer bufferAppendError after the first segment),
+    # even though VLC plays them. Default OFF: always transcode to normalise.
+    HLS_STREAM_COPY_ENABLED: bool = False
     # HLS segment length in seconds.
     HLS_SEGMENT_SECONDS: int = 6
     # Auto-package on lesson video upload. Disable to package out-of-band.
